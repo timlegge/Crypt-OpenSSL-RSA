@@ -1,0 +1,57 @@
+name: msys2-mingw
+
+on:
+  push:
+    branches:
+      - '*'
+    tags-ignore:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+jobs:
+  perl:
+
+    runs-on: windows-latest
+
+    strategy:
+      fail-fast: false
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Set git to use LF
+        run: |
+          git config --global core.autocrlf false
+          git config --global core.eol lf
+        shell: powershell
+
+      - uses: actions/checkout@v4
+
+      - name: Set up msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            base-devel
+            gcc
+            libopenssl
+            openssl-devel
+            perl
+            perl-devel
+      - name: perl -V
+        run: |
+          perl -V
+          uname -a
+      - name: Install Dependencies
+        run: |
+          curl -Uri https://cpanmin.us/ | perl - -nq --with-develop --installdeps -v .
+      - name: Build Module
+        run: |
+          perl Makefile.PL
+          make
+      - name: Run Tests
+        run: |
+          make test TEST_VERBOSE=1
