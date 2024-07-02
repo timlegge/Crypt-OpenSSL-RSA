@@ -10,6 +10,9 @@
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <openssl/ripemd.h>
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+#include <openssl/whrlpool.h>
+#endif
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
 #include <openssl/ssl.h>
@@ -1038,7 +1041,6 @@ sign(p_rsa, text_SV)
                             p_rsa->rsa));
 #endif
     RETVAL = newSVpvn((const char *)signature, signature_length);
-    Safefree(signature);
 }
   OUTPUT:
     RETVAL
