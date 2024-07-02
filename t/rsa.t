@@ -5,7 +5,9 @@ use Crypt::OpenSSL::Random;
 use Crypt::OpenSSL::RSA;
 use Crypt::OpenSSL::Guess qw(openssl_version);
 
-BEGIN { plan tests => 43 + ( UNIVERSAL::can( "Crypt::OpenSSL::RSA", "use_sha512_hash" ) ? 4 * 5 : 0 ) }
+BEGIN { plan tests => 43 +
+        ( UNIVERSAL::can( "Crypt::OpenSSL::RSA", "use_sha512_hash" ) ? 4 * 5 : 0 ) +
+        ( UNIVERSAL::can( "Crypt::OpenSSL::RSA", "use_whirlpool_hash" ) ? 1 * 5 : 0 ) }
 
 sub _Test_Encrypt_And_Decrypt {
     my ( $p_plaintext_length, $p_rsa, $p_check_private_encrypt ) = @_;
