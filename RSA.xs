@@ -23,6 +23,11 @@
 #include <openssl/encoder.h>
 #endif
 
+#if OPENSSL_VERSION_NUMBER >= 0x300000000
+#define UNSIGNED_CHAR unsigned char
+#else
+#define UNSIGNED_CHAR char
+#endif
 typedef struct
 {
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
@@ -272,7 +277,7 @@ RSA* _load_rsa_key(SV* p_keyStringSv,
 {
     STRLEN keyStringLength;
     char* keyString;
-    char* passphase = NULL;
+    UNSIGNED_CHAR *passphase = NULL;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY* rsa;
 #else
@@ -310,23 +315,18 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     STRLEN from_length;
     size_t to_length;
-    unsigned char* to;
 #else
     STRLEN from_length;
     int to_length;
-    char* to;
 #endif
+    UNSIGNED_CHAR *to;
     int size;
     unsigned char* from;
     SV* sv;
 
     from = (unsigned char*) SvPV(p_from, from_length);
     size = get_key_size(p_rsa);
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    CHECK_NEW(to, size, unsigned char);
-#else
-    CHECK_NEW(to, size, char);
-#endif
+    CHECK_NEW(to, size, UNSIGNED_CHAR);
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY_CTX *ctx;
 
@@ -430,11 +430,7 @@ get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_u
     SV* cipher_name_SV;
   PREINIT:
     BIO* stringBIO;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    unsigned char* passphase = NULL;
-#else
-    char* passphase = NULL;
-#endif
+    char *passphase = NULL;
     STRLEN passphaseLength = 0;
     char* cipher_name;
     const EVP_CIPHER* enc = NULL;
@@ -443,7 +439,7 @@ get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_u
         croak("Passphrase is required for cipher");
     }
     if (SvPOK(passphase_SV)) {
-        passphase = (unsigned char *) SvPV(passphase_SV, passphaseLength);
+        passphase = SvPV(passphase_SV, passphaseLength);
         if (SvPOK(cipher_name_SV)) {
             cipher_name = SvPV_nolen(cipher_name_SV);
         }
@@ -463,7 +459,7 @@ get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_u
                              NULL, NULL);
 #else
     PEM_write_bio_RSAPrivateKey(
-        stringBIO, p_rsa->rsa, enc, passphase, passphaseLength, NULL, NULL);
+        stringBIO, p_rsa->rsa, enc, (unsigned char *) passphase, passphaseLength, NULL, NULL);
 #endif
     RETVAL = extractBioString(stringBIO);
 
@@ -533,9 +529,9 @@ generate_key(proto, bitsSV, exponent = 65537)
     CHECK_OPEN_SSL(rsa != NULL);
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x00908000L && OPENSSL_VERSION_NUMBER < 0x30000000L
-    int rc;
     rsa = RSA_new();
-    rc = RSA_generate_key_ex(rsa, SvIV(bitsSV), e, NULL);
+    if (!RSA_generate_key_ex(rsa, SvIV(bitsSV), e, NULL))
+       croak("Unable to generate a key");
     BN_free(e);
     CHECK_OPEN_SSL(rsa != NULL);
 #endif
