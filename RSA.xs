@@ -681,22 +681,6 @@ _new_key_from_parameters(proto, n, e, d, p, q)
 #else
         THROW(RSA_check_key(rsa) == 1);
 #endif
-     err:
-        if (p_minus_1) BN_clear_free(p_minus_1);
-        if (q_minus_1) BN_clear_free(q_minus_1);
-        if (dmp1) BN_clear_free(dmp1);
-        if (dmq1) BN_clear_free(dmq1);
-        if (iqmp) BN_clear_free(iqmp);
-        if (ctx) BN_CTX_free(ctx);
-        if (error)
-        {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-            EVP_PKEY_free(rsa);
-#else
-            RSA_free(rsa);
-#endif
-            CHECK_OPEN_SSL(0);
-        }
     }
     else
     {
@@ -716,8 +700,33 @@ _new_key_from_parameters(proto, n, e, d, p, q)
 #endif
 #endif
     }
+
     RETVAL = make_rsa_obj(aTHX_ proto, rsa);
-}
+    if(RETVAL)
+        goto end;
+
+    err:
+        //if (p) BN_clear_free(p);
+        if (p_minus_1) BN_clear_free(p_minus_1);
+        //if (q) BN_clear_free(q);
+        //if (d) BN_clear_free(d);
+        if (q_minus_1) BN_clear_free(q_minus_1);
+        if (dmp1) BN_clear_free(dmp1);
+        if (dmq1) BN_clear_free(dmq1);
+        if (iqmp) BN_clear_free(iqmp);
+        if (ctx) BN_CTX_free(ctx);
+        if (error)
+        {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+            EVP_PKEY_free(rsa);
+#else
+            RSA_free(rsa);
+#endif
+            CHECK_OPEN_SSL(0);
+        }
+    }
+    end:
+
   OUTPUT:
     RETVAL
 
