@@ -308,7 +308,7 @@ RSA* _load_rsa_key(pTHX_ SV* p_keyStringSv,
 
 SV* rsa_crypt(pTHX_ rsaData* p_rsa, SV* p_from,
               int (*p_crypt)(EVP_PKEY_CTX*, unsigned char*, size_t*, const unsigned char*, size_t),
-              int (*init_crypt)(EVP_PKEY_CTX*))
+              int (*init_crypt)(EVP_PKEY_CTX*), int public)
 #else
 
 SV* rsa_crypt(pTHX_ rsaData* p_rsa, SV* p_from,
@@ -333,7 +333,14 @@ SV* rsa_crypt(pTHX_ rsaData* p_rsa, SV* p_from,
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY_CTX *ctx;
 
-    ctx = EVP_PKEY_CTX_new((EVP_PKEY *)p_rsa->rsa, NULL);
+    OSSL_LIB_CTX *ossllibctx = OSSL_LIB_CTX_new();
+    const char *propquery;
+    if (public) {
+        ctx = EVP_PKEY_CTX_new_from_pkey(ossllibctx, (EVP_PKEY *)p_rsa->rsa, propquery);
+    } else {
+        ctx = EVP_PKEY_CTX_new((EVP_PKEY *)p_rsa->rsa, NULL);
+    }
+
     CHECK_OPEN_SSL(ctx);
 
     CHECK_OPEN_SSL(init_crypt(ctx) == 1);
@@ -802,7 +809,7 @@ encrypt(p_rsa, p_plaintext)
     SV* p_plaintext;
   CODE:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, EVP_PKEY_encrypt, EVP_PKEY_encrypt_init);
+    RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, EVP_PKEY_encrypt, EVP_PKEY_encrypt_init, 1 /* public */);
 #else
     RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, RSA_public_encrypt);
 #endif
@@ -819,7 +826,7 @@ decrypt(p_rsa, p_ciphertext)
         croak("Public keys cannot decrypt");
     }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, EVP_PKEY_decrypt, EVP_PKEY_decrypt_init);
+    RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, EVP_PKEY_decrypt, EVP_PKEY_decrypt_init, 0 /* private */);
 #else
     RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, RSA_private_decrypt);
 #endif
@@ -836,7 +843,7 @@ private_encrypt(p_rsa, p_plaintext)
         croak("Public keys cannot private_encrypt");
     }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, EVP_PKEY_sign, EVP_PKEY_sign_init);
+    RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, EVP_PKEY_sign, EVP_PKEY_sign_init,  0 /* private */);
 #else
     RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, RSA_private_encrypt);
 #endif
@@ -849,7 +856,7 @@ public_decrypt(p_rsa, p_ciphertext)
     SV* p_ciphertext;
   CODE:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, EVP_PKEY_verify_recover, EVP_PKEY_verify_recover_init);
+    RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, EVP_PKEY_verify_recover, EVP_PKEY_verify_recover_init, 1 /*public */);
 #else
     RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, RSA_public_decrypt);
 #endif
