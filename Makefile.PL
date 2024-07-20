@@ -1,6 +1,7 @@
 use strict;
 use warnings;
 use Config;
+use List::Util 1.45           qw(uniq);
 
 use 5.006;
 use ExtUtils::MakeMaker 6.48;
@@ -10,6 +11,24 @@ my ($major, $minor, $patch) = openssl_version();
 print "OpenSSL version: $major.$minor $patch", "\n";
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
+
+my $libs = ' -lssl -lcrypto';
+if ( $Config{osname} eq 'aix' ) {
+    $libs = $libs . ' -lz';
+}
+
+my $ssllibpth = openssl_lib_paths();
+my $lddlflags = $Config{lddlflags};
+$lddlflags    =~ s/(?=-L)/$ssllibpth /;
+
+my $ldflags = $Config{ldflags};
+$ldflags    =~ s/(?=-L)/$ssllibpth /;
+
+if ($^O eq "hpux" && $Config{ld} eq "/usr/bin/ld") {
+    my $bpth = join ":" => uniq (+("$ssllibpth $lddlflags $ldflags") =~ m/-L(\S+)/g);
+    $lddlflags .= " +b $bpth";
+    $ldflags   .= " +Wl,+b,$bpth";
+}
 
 WriteMakefile(
     'NAME'             => 'Crypt::OpenSSL::RSA',
@@ -25,8 +44,9 @@ WriteMakefile(
         'Test::More'             => 0,
     },
     'OBJECT' => 'RSA.o',
-    'LIBS'   => [openssl_lib_paths() . ' -lssl -lcrypto'],
-    'LDDLFLAGS' => openssl_lib_paths() . ' ' . $Config{lddlflags},
+    'LIBS'             => [ openssl_lib_paths() . $libs ],
+    'LDDLFLAGS'        => $lddlflags,
+    'LDFLAGS'          => $ldflags,
     'DEFINE' => '-DPERL5 -DOPENSSL_NO_KRB5',
 
     # perl-5.8/gcc-3.2 needs -DPERL5, and redhat9 likes -DOPENSSL_NO_KRB5
