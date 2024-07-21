@@ -1,4 +1,3 @@
-#define PERL_NO_GET_CONTEXT
 #include "EXTERN.h"
 #include "perl.h"
 #include "XSUB.h"
@@ -26,16 +25,33 @@
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #define UNSIGNED_CHAR unsigned char
+#define SIZE_T_INT size_t
+#define SIZE_T_UNSIGNED_INT size_t
+#define EVP_PKEY EVP_PKEY
+#define EVP_PKEY_free(p) EVP_PKEY_free(p)
+#define EVP_PKEY_get_size(p) EVP_PKEY_get_size(p)
+#define PEM_read_bio_PrivateKey PEM_read_bio_PrivateKey
+#define PEM_read_bio_RSAPublicKey PEM_read_bio_PUBKEY
+#define PEM_read_bio_RSA_PUBKEY PEM_read_bio_PUBKEY
+#define PEM_write_bio_PUBKEY(o,p) PEM_write_bio_PUBKEY(o,p);
+#define PEM_write_bio_PrivateKey_traditional(m, n, o, p, q, r, s) PEM_write_bio_PrivateKey_traditional(m, n, o, p, q, r, s)
 #else
 #define UNSIGNED_CHAR char
+#define SIZE_T_INT int
+#define SIZE_T_UNSIGNED_INT unsigned int
+#define EVP_PKEY RSA
+#define EVP_PKEY_free(p) RSA_free(p)
+#define EVP_PKEY_get_size(p) RSA_size(p)
+#define PEM_read_bio_PrivateKey PEM_read_bio_RSAPrivateKey
+#define PEM_read_bio_RSAPublicKey PEM_read_bio_RSAPublicKey
+#define PEM_read_bio_RSA_PUBKEY PEM_read_bio_RSA_PUBKEY
+#define PEM_write_bio_PUBKEY(o,p) PEM_write_bio_RSA_PUBKEY(o,p)
+#define PEM_write_bio_PrivateKey_traditional(m, n, o, p, q, r, s) PEM_write_bio_RSAPrivateKey(m, n , o, p, q, r, s)
 #endif
+
 typedef struct
 {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY* rsa;
-#else
-    RSA* rsa;
-#endif
     int padding;
     int hashMode;
 } rsaData;
@@ -84,13 +100,8 @@ char _is_private(rsaData* p_rsa)
 #endif
     return(d != NULL);
 }
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
 
-SV* make_rsa_obj(pTHX_ SV* p_proto, EVP_PKEY* p_rsa)
-#else
-
-SV* make_rsa_obj(pTHX_ SV* p_proto, RSA* p_rsa)
-#endif
+SV* make_rsa_obj(SV* p_proto, EVP_PKEY* p_rsa)
 {
     rsaData* rsa;
 
@@ -180,7 +191,7 @@ EVP_MD *get_md_bynid(int hash_method)
     }
 }
 #endif
-unsigned char* get_message_digest(pTHX_ SV* text_SV, int hash_method)
+unsigned char* get_message_digest(SV* text_SV, int hash_method)
 {
     STRLEN text_length;
     unsigned char* text;
@@ -233,17 +244,17 @@ unsigned char* get_message_digest(pTHX_ SV* text_SV, int hash_method)
     }
 }
 
-SV* cor_bn2sv(pTHX_ const BIGNUM* p_bn)
+SV* cor_bn2sv(const BIGNUM* p_bn)
 {
     return p_bn != NULL
         ? sv_2mortal(newSViv((IV) BN_dup(p_bn)))
         : &PL_sv_undef;
 }
 
-SV* extractBioString(pTHX_ BIO* p_stringBio)
+SV* extractBioString(BIO* p_stringBio)
 {
     SV* sv;
-    char *datap;
+    char* datap;
     long datasize = 0;
 
     CHECK_OPEN_SSL(BIO_flush(p_stringBio) == 1);
@@ -256,36 +267,15 @@ SV* extractBioString(pTHX_ BIO* p_stringBio)
     return sv;
 }
 
-int get_key_size(rsaData* p_rsa) {
-    int size = 0;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    size = EVP_PKEY_get_size(p_rsa->rsa);
-#else
-    size = RSA_size(p_rsa->rsa);
-#endif
-    return size;
-}
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-
-EVP_PKEY* _load_rsa_key(pTHX_ SV* p_keyStringSv,
+EVP_PKEY*  _load_rsa_key(SV* p_keyStringSv,
                         EVP_PKEY*(*p_loader)(BIO *, EVP_PKEY**, pem_password_cb*, void*),
                    SV* p_passphaseSv)
-
-#else
-
-RSA* _load_rsa_key(pTHX_ SV* p_keyStringSv,
-                   RSA*(*p_loader)(BIO*, RSA**, pem_password_cb*, void*),
-                   SV* p_passphaseSv)
-#endif
 {
     STRLEN keyStringLength;
     char* keyString;
     UNSIGNED_CHAR *passphase = NULL;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+
     EVP_PKEY* rsa;
-#else
-    RSA* rsa;
-#endif
     BIO* stringBIO;
 
     keyString = SvPV(p_keyStringSv, keyStringLength);
@@ -306,39 +296,34 @@ RSA* _load_rsa_key(pTHX_ SV* p_keyStringSv,
 }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 
-SV* rsa_crypt(pTHX_ rsaData* p_rsa, SV* p_from,
+SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
               int (*p_crypt)(EVP_PKEY_CTX*, unsigned char*, size_t*, const unsigned char*, size_t),
               int (*init_crypt)(EVP_PKEY_CTX*), int public)
 #else
 
-SV* rsa_crypt(pTHX_ rsaData* p_rsa, SV* p_from,
+SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
               int (*p_crypt)(int, const unsigned char*, unsigned char*, RSA*, int))
 #endif
 {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
     STRLEN from_length;
-    size_t to_length;
-#else
-    STRLEN from_length;
-    int to_length;
-#endif
-    UNSIGNED_CHAR *to;
+    SIZE_T_INT to_length;
     int size;
     unsigned char* from;
+    UNSIGNED_CHAR *to;
     SV* sv;
 
     from = (unsigned char*) SvPV(p_from, from_length);
-    size = get_key_size(p_rsa);
+    size = EVP_PKEY_get_size(p_rsa->rsa);
     CHECK_NEW(to, size, UNSIGNED_CHAR);
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY_CTX *ctx;
 
     OSSL_LIB_CTX *ossllibctx = OSSL_LIB_CTX_new();
-    const char *propquery;
+    const char* propquery;
     if (public) {
-        ctx = EVP_PKEY_CTX_new_from_pkey(ossllibctx, (EVP_PKEY *)p_rsa->rsa, propquery);
+        ctx = EVP_PKEY_CTX_new_from_pkey(ossllibctx, (EVP_PKEY* )p_rsa->rsa, propquery);
     } else {
-        ctx = EVP_PKEY_CTX_new((EVP_PKEY *)p_rsa->rsa, NULL);
+        ctx = EVP_PKEY_CTX_new((EVP_PKEY* )p_rsa->rsa, NULL);
     }
 
     CHECK_OPEN_SSL(ctx);
@@ -358,7 +343,7 @@ SV* rsa_crypt(pTHX_ rsaData* p_rsa, SV* p_from,
         Safefree(to);
         CHECK_OPEN_SSL(0);
     }
-    sv = newSVpv((char *) to, to_length);
+    sv = newSVpv((char* ) to, to_length);
     Safefree(to);
     return sv;
 }
@@ -382,13 +367,8 @@ new_private_key(proto, key_string_SV, passphase_SV=&PL_sv_undef)
     SV* key_string_SV;
     SV* passphase_SV;
   CODE:
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = make_rsa_obj(aTHX_
-        proto, _load_rsa_key(aTHX_ key_string_SV, PEM_read_bio_PrivateKey, passphase_SV));
-#else
-    RETVAL = make_rsa_obj(aTHX_
-        proto, _load_rsa_key(aTHX_ key_string_SV, PEM_read_bio_RSAPrivateKey, passphase_SV));
-#endif
+    RETVAL = make_rsa_obj(
+        proto, _load_rsa_key(key_string_SV, PEM_read_bio_PrivateKey, passphase_SV));
   OUTPUT:
     RETVAL
 
@@ -397,13 +377,8 @@ _new_public_key_pkcs1(proto, key_string_SV)
     SV* proto;
     SV* key_string_SV;
   CODE:
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = make_rsa_obj(aTHX_
-        proto, _load_rsa_key(aTHX_ key_string_SV, PEM_read_bio_PUBKEY, &PL_sv_undef));
-#else
-    RETVAL = make_rsa_obj(aTHX_
-        proto, _load_rsa_key(aTHX_ key_string_SV, PEM_read_bio_RSAPublicKey, &PL_sv_undef));
-#endif
+    RETVAL = make_rsa_obj(
+        proto, _load_rsa_key(key_string_SV, PEM_read_bio_RSAPublicKey, &PL_sv_undef));
   OUTPUT:
     RETVAL
 
@@ -412,13 +387,8 @@ _new_public_key_x509(proto, key_string_SV)
     SV* proto;
     SV* key_string_SV;
   CODE:
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = make_rsa_obj(aTHX_
-        proto, _load_rsa_key(aTHX_ key_string_SV, PEM_read_bio_PUBKEY, &PL_sv_undef));
-#else
-    RETVAL = make_rsa_obj(aTHX_
-        proto, _load_rsa_key(aTHX_ key_string_SV, PEM_read_bio_RSA_PUBKEY, &PL_sv_undef));
-#endif
+    RETVAL = make_rsa_obj(
+        proto, _load_rsa_key(key_string_SV, PEM_read_bio_RSA_PUBKEY, &PL_sv_undef));
   OUTPUT:
     RETVAL
 
@@ -426,11 +396,7 @@ void
 DESTROY(p_rsa)
     rsaData* p_rsa;
   CODE:
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY_free(p_rsa->rsa);
-#else
-    RSA_free(p_rsa->rsa);
-#endif
     Safefree(p_rsa);
 
 SV*
@@ -440,7 +406,7 @@ get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_u
     SV* cipher_name_SV;
   PREINIT:
     BIO* stringBIO;
-    char *passphase = NULL;
+    char* passphase = NULL;
     STRLEN passphaseLength = 0;
     char* cipher_name;
     const EVP_CIPHER* enc = NULL;
@@ -463,15 +429,9 @@ get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_u
     }
 
     CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    PEM_write_bio_PrivateKey_traditional(stringBIO, p_rsa->rsa, enc,
-                             passphase, passphaseLength,
-                             NULL, NULL);
-#else
-    PEM_write_bio_RSAPrivateKey(
-        stringBIO, p_rsa->rsa, enc, (unsigned char *) passphase, passphaseLength, NULL, NULL);
-#endif
-    RETVAL = extractBioString(aTHX_ stringBIO);
+    PEM_write_bio_PrivateKey_traditional(
+        stringBIO, p_rsa->rsa, enc, (unsigned char* ) passphase, passphaseLength, NULL, NULL);
+    RETVAL = extractBioString(stringBIO);
 
   OUTPUT:
     RETVAL
@@ -496,7 +456,7 @@ get_public_key_string(p_rsa)
 #else
     PEM_write_bio_RSAPublicKey(stringBIO, p_rsa->rsa);
 #endif
-    RETVAL = extractBioString(aTHX_ stringBIO);
+    RETVAL = extractBioString(stringBIO);
 
   OUTPUT:
     RETVAL
@@ -508,12 +468,8 @@ get_public_key_x509_string(p_rsa)
     BIO* stringBIO;
   CODE:
     CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
     PEM_write_bio_PUBKEY(stringBIO, p_rsa->rsa);
-#else
-    PEM_write_bio_RSA_PUBKEY(stringBIO, p_rsa->rsa);
-#endif
-    RETVAL = extractBioString(aTHX_ stringBIO);
+    RETVAL = extractBioString(stringBIO);
 
   OUTPUT:
     RETVAL
@@ -524,11 +480,9 @@ generate_key(proto, bitsSV, exponent = 65537)
     SV* bitsSV;
     unsigned long exponent;
   PREINIT:
+    EVP_PKEY* rsa = NULL;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY_CTX *ctx;
-    EVP_PKEY *rsa = NULL;
-#else
-    RSA* rsa;
 #endif
   CODE:
     BIGNUM *e;
@@ -560,7 +514,7 @@ generate_key(proto, bitsSV, exponent = 65537)
     EVP_PKEY_CTX_free(ctx);
 #endif
     CHECK_OPEN_SSL(rsa);
-    RETVAL = make_rsa_obj(aTHX_ proto, rsa);
+    RETVAL = make_rsa_obj(proto, rsa);
   OUTPUT:
     RETVAL
 
@@ -574,12 +528,8 @@ _new_key_from_parameters(proto, n, e, d, p, q)
     BIGNUM* p;
     BIGNUM* q;
   PREINIT:
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    EVP_PKEY *rsa = NULL;
-#else
-    RSA* rsa;
-#endif
-    BN_CTX* ctx;
+    EVP_PKEY* rsa = NULL;
+    BN_CTX* ctx = NULL;
     BIGNUM* p_minus_1 = NULL;
     BIGNUM* q_minus_1 = NULL;
     BIGNUM* dmp1 = NULL;
@@ -708,7 +658,7 @@ _new_key_from_parameters(proto, n, e, d, p, q)
 #endif
     }
 
-    RETVAL = make_rsa_obj(aTHX_ proto, rsa);
+    RETVAL = make_rsa_obj(proto, rsa);
     if(RETVAL)
         goto end;
 
@@ -724,11 +674,7 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         if (ctx) BN_CTX_free(ctx);
         if (error)
         {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
             EVP_PKEY_free(rsa);
-#else
-            RSA_free(rsa);
-#endif
             CHECK_OPEN_SSL(0);
         }
     }
@@ -762,11 +708,7 @@ PREINIT:
 #endif
 PPCODE:
 {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY* rsa;
-#else
-    RSA* rsa;
-#endif
     rsa = p_rsa->rsa;
 #if OLD_CRUFTY_SSL_VERSION
     n = rsa->n;
@@ -793,14 +735,14 @@ PPCODE:
     RSA_get0_crt_params(rsa, &dmp1, &dmq1, &iqmp);
 #endif
 #endif
-    XPUSHs(cor_bn2sv(aTHX_ n));
-    XPUSHs(cor_bn2sv(aTHX_ e));
-    XPUSHs(cor_bn2sv(aTHX_ d));
-    XPUSHs(cor_bn2sv(aTHX_ p));
-    XPUSHs(cor_bn2sv(aTHX_ q));
-    XPUSHs(cor_bn2sv(aTHX_ dmp1));
-    XPUSHs(cor_bn2sv(aTHX_ dmq1));
-    XPUSHs(cor_bn2sv(aTHX_ iqmp));
+    XPUSHs(cor_bn2sv(n));
+    XPUSHs(cor_bn2sv(e));
+    XPUSHs(cor_bn2sv(d));
+    XPUSHs(cor_bn2sv(p));
+    XPUSHs(cor_bn2sv(q));
+    XPUSHs(cor_bn2sv(dmp1));
+    XPUSHs(cor_bn2sv(dmq1));
+    XPUSHs(cor_bn2sv(iqmp));
 }
 
 SV*
@@ -809,9 +751,9 @@ encrypt(p_rsa, p_plaintext)
     SV* p_plaintext;
   CODE:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, EVP_PKEY_encrypt, EVP_PKEY_encrypt_init, 1 /* public */);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_encrypt, EVP_PKEY_encrypt_init, 1 /* public */);
 #else
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, RSA_public_encrypt);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_public_encrypt);
 #endif
   OUTPUT:
     RETVAL
@@ -826,9 +768,9 @@ decrypt(p_rsa, p_ciphertext)
         croak("Public keys cannot decrypt");
     }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, EVP_PKEY_decrypt, EVP_PKEY_decrypt_init, 0 /* private */);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_decrypt, EVP_PKEY_decrypt_init, 0 /* private */);
 #else
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, RSA_private_decrypt);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_private_decrypt);
 #endif
   OUTPUT:
     RETVAL
@@ -843,9 +785,9 @@ private_encrypt(p_rsa, p_plaintext)
         croak("Public keys cannot private_encrypt");
     }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, EVP_PKEY_sign, EVP_PKEY_sign_init,  0 /* private */);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_sign, EVP_PKEY_sign_init,  0 /* private */);
 #else
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_plaintext, RSA_private_encrypt);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_private_encrypt);
 #endif
   OUTPUT:
     RETVAL
@@ -856,9 +798,9 @@ public_decrypt(p_rsa, p_ciphertext)
     SV* p_ciphertext;
   CODE:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, EVP_PKEY_verify_recover, EVP_PKEY_verify_recover_init, 1 /*public */);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_verify_recover, EVP_PKEY_verify_recover_init, 1 /*public */);
 #else
-    RETVAL = rsa_crypt(aTHX_ p_rsa, p_ciphertext, RSA_public_decrypt);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_public_decrypt);
 #endif
   OUTPUT:
     RETVAL
@@ -867,7 +809,7 @@ int
 size(p_rsa)
     rsaData* p_rsa;
   CODE:
-    RETVAL = get_key_size(p_rsa);
+    RETVAL = EVP_PKEY_get_size(p_rsa->rsa);
   OUTPUT:
     RETVAL
 
@@ -1004,27 +946,18 @@ sign(p_rsa, text_SV)
     rsaData* p_rsa;
     SV* text_SV;
   PREINIT:
+    UNSIGNED_CHAR *signature;
     unsigned char* digest;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    unsigned char* signature;
-    size_t signature_length;
-#else
-    char* signature;
-    unsigned int signature_length;
-#endif
+    SIZE_T_UNSIGNED_INT signature_length;
   CODE:
 {
     if (!_is_private(p_rsa))
     {
         croak("Public keys cannot sign messages");
     }
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    CHECK_NEW(signature, get_key_size(p_rsa), unsigned char);
-#else
-    CHECK_NEW(signature, get_key_size(p_rsa), char);
-#endif
+    CHECK_NEW(signature, EVP_PKEY_get_size(p_rsa->rsa), UNSIGNED_CHAR);
 
-    CHECK_OPEN_SSL(digest = get_message_digest(aTHX_ text_SV, p_rsa->hashMode));
+    CHECK_OPEN_SSL(digest = get_message_digest(text_SV, p_rsa->hashMode));
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY_CTX *ctx;
     ctx = EVP_PKEY_CTX_new(p_rsa->rsa, NULL /* no engine */);
@@ -1056,7 +989,7 @@ sign(p_rsa, text_SV)
                             &signature_length,
                             p_rsa->rsa));
 #endif
-    RETVAL = newSVpvn((const char *)signature, signature_length);
+    RETVAL = newSVpvn((const char* )signature, signature_length);
     Safefree(signature);
 }
   OUTPUT:
@@ -1076,12 +1009,12 @@ PPCODE:
     STRLEN sig_length;
 
     sig = (unsigned char*) SvPV(sig_SV, sig_length);
-    if (get_key_size(p_rsa) < sig_length)
+    if (EVP_PKEY_get_size(p_rsa->rsa) < sig_length)
     {
         croak("Signature longer than key");
     }
 
-    CHECK_OPEN_SSL(digest = get_message_digest(aTHX_ text_SV, p_rsa->hashMode));
+    CHECK_OPEN_SSL(digest = get_message_digest(text_SV, p_rsa->hashMode));
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     EVP_PKEY_CTX *ctx;
     ctx = EVP_PKEY_CTX_new(p_rsa->rsa, NULL /* no engine */);
