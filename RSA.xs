@@ -305,7 +305,7 @@ EVP_PKEY*  _load_rsa_key(SV* p_keyStringSv,
 
 SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
               int (*p_crypt)(EVP_PKEY_CTX*, unsigned char*, size_t*, const unsigned char*, size_t),
-              int (*init_crypt)(EVP_PKEY_CTX*), int public)
+              int (*init_crypt)(EVP_PKEY_CTX*), int public, int operation)
 #else
 
 SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
@@ -335,7 +335,14 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
     CHECK_OPEN_SSL(ctx);
 
     CHECK_OPEN_SSL(init_crypt(ctx) == 1);
-    CHECK_OPEN_SSL(EVP_PKEY_CTX_set_rsa_padding(ctx, p_rsa->padding) > 0);
+
+    int padding = p_rsa->padding;
+    if (operation == 1 && p_rsa->padding == RSA_PKCS1_PADDING)
+        padding = RSA_PKCS1_OAEP_PADDING;
+    else
+        padding = p_rsa->padding;
+
+    CHECK_OPEN_SSL(EVP_PKEY_CTX_set_rsa_padding(ctx, padding) > 0);
     CHECK_OPEN_SSL(p_crypt(ctx, NULL, &to_length, from, from_length) == 1);
     CHECK_OPEN_SSL(p_crypt(ctx, to, &to_length, from, from_length) == 1);
 
@@ -757,7 +764,7 @@ encrypt(p_rsa, p_plaintext)
     SV* p_plaintext;
   CODE:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_encrypt, EVP_PKEY_encrypt_init, 1 /* public */);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_encrypt, EVP_PKEY_encrypt_init, 1 /* public */, 1 /* encryption */);
 #else
     RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_public_encrypt);
 #endif
@@ -774,7 +781,7 @@ decrypt(p_rsa, p_ciphertext)
         croak("Public keys cannot decrypt");
     }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_decrypt, EVP_PKEY_decrypt_init, 0 /* private */);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_decrypt, EVP_PKEY_decrypt_init, 0 /* private */, 1 /* encryption */);
 #else
     RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_private_decrypt);
 #endif
@@ -791,7 +798,7 @@ private_encrypt(p_rsa, p_plaintext)
         croak("Public keys cannot private_encrypt");
     }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_sign, EVP_PKEY_sign_init,  0 /* private */);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_sign, EVP_PKEY_sign_init,  0 /* private */, 0 /* encryption */);
 #else
     RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_private_encrypt);
 #endif
@@ -804,7 +811,7 @@ public_decrypt(p_rsa, p_ciphertext)
     SV* p_ciphertext;
   CODE:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_verify_recover, EVP_PKEY_verify_recover_init, 1 /*public */);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_verify_recover, EVP_PKEY_verify_recover_init, 1 /*public */, 0 /* decrypt */);
 #else
     RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_public_decrypt);
 #endif
@@ -927,7 +934,7 @@ void
 use_pkcs1_padding(p_rsa)
     rsaData* p_rsa;
   CODE:
-    croak("PKCS#1 1.5 is disabled as it is known to be vulnerable to marvin attacks.");
+    p_rsa->padding = RSA_PKCS1_PADDING;
 
 void
 use_pkcs1_oaep_padding(p_rsa)
