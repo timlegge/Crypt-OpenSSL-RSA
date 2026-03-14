@@ -714,10 +714,6 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         params_build = NULL;
         params = NULL;
         THROW( status > 0 && rsa != NULL );
-        OSSL_PARAM_BLD_free(params_build);
-        params_build = NULL;
-        OSSL_PARAM_free(params);
-        params = NULL;
         EVP_PKEY_CTX_free(pctx);
         pctx = NULL;
 #else
@@ -741,6 +737,7 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         if (iqmp) BN_clear_free(iqmp);
         if (ctx) BN_CTX_free(ctx);
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        if (pctx) EVP_PKEY_CTX_free(pctx);
         if (params_build) OSSL_PARAM_BLD_free(params_build);
         if (params) OSSL_PARAM_free(params);
 #endif
