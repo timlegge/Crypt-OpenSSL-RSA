@@ -527,12 +527,11 @@ generate_key(proto, bitsSV, exponent = 65537)
     rsa = RSA_new();
     if (!RSA_generate_key_ex(rsa, SvIV(bitsSV), e, NULL))
     {
-       BN_free(e);
-       RSA_free(rsa);
-       croak("Unable to generate a key");
+        BN_free(e);
+        RSA_free(rsa);
+        croak("Unable to generate a key");
     }
     BN_free(e);
-    CHECK_OPEN_SSL(rsa != NULL);
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
