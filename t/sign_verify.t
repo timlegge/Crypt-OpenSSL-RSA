@@ -18,23 +18,27 @@ my $rsa_pub = Crypt::OpenSSL::RSA->new_public_key($rsa->get_public_key_string())
 # --- Cross-hash verification ---
 # Sign with one hash, verify with another — should always fail.
 
+# sha256 sign, sha1 verify
 {
     $rsa->use_sha256_hash();
     $rsa->use_pkcs1_pss_padding();
     my $msg = "cross-hash test message";
     my $sig = $rsa->sign($msg);
 
+    # SHA1 verify may croak on systems with legacy digest restrictions (e.g. almalinux:9)
     $rsa_pub->use_sha1_hash();
     $rsa_pub->use_pkcs1_pss_padding();
     my $result = eval { $rsa_pub->verify($msg, $sig) };
     ok(!$result, "sha256 signature does not verify with sha1 hash");
 }
 
-{
+# sha1 sign, sha256 verify — SHA1 signing may be disabled on FIPS-like systems
+SKIP: {
     $rsa->use_sha1_hash();
     $rsa->use_pkcs1_pss_padding();
     my $msg = "reverse cross-hash test";
-    my $sig = $rsa->sign($msg);
+    my $sig = eval { $rsa->sign($msg) };
+    skip "SHA1 signing not available: $@", 1 if $@;
 
     $rsa_pub->use_sha256_hash();
     $rsa_pub->use_pkcs1_pss_padding();
