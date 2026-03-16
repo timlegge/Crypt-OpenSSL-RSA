@@ -112,7 +112,7 @@ my %padding_methods = (
                        'no'          => {'sign' => 1, 'encrypt' => 1, 'pad' => 0},
                        'pkcs1_pss'   => {'sign' => 1, 'encrypt' => 0, 'pad' => 1},
                        'pkcs1_oaep'  => {'sign' => 0, 'encrypt' => 1, 'pad' => 42},
-                       'pkcs1'       => {'sign' => 1, 'encrypt' => 0, 'pad' => 11},
+                       'pkcs1'       => {'sign' => 1, 'encrypt' => 0, 'pad' => 11}, # pad value only affects plaintext length; sign() hashes input so value is arbitrary (must be non-zero)
                        #'sslv23'      => {'sign' => 0, 'encrypt' => 0, 'pad' => 11},
                     );
 

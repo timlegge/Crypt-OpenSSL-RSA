@@ -311,11 +311,11 @@ EVP_PKEY*  _load_rsa_key(SV* p_keyStringSv,
 
 SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
               int (*p_crypt)(EVP_PKEY_CTX*, unsigned char*, size_t*, const unsigned char*, size_t),
-              int (*init_crypt)(EVP_PKEY_CTX*), int public)
+              int (*init_crypt)(EVP_PKEY_CTX*), int public, int is_encrypt)
 #else
 
 SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
-              int (*p_crypt)(int, const unsigned char*, unsigned char*, RSA*, int))
+              int (*p_crypt)(int, const unsigned char*, unsigned char*, RSA*, int), int is_encrypt)
 #endif
 {
     STRLEN from_length;
@@ -328,7 +328,7 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
     from = (unsigned char*) SvPV(p_from, from_length);
     size = EVP_PKEY_get_size(p_rsa->rsa);
 
-    if(p_rsa->padding == RSA_PKCS1_PADDING) {
+    if(is_encrypt && p_rsa->padding == RSA_PKCS1_PADDING) {
         croak("PKCS#1 v1.5 padding for encryption is vulnerable to the Marvin attack. "
               "Use use_pkcs1_oaep_padding() for encryption, or use_pkcs1_padding() with sign()/verify().");
     }
@@ -350,8 +350,11 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
     THROW(ctx);
 
     THROW(init_crypt(ctx) == 1);
+    /* After the PKCS1 and PSS guards above, the only reachable padding
+       values here are RSA_NO_PADDING and RSA_PKCS1_OAEP_PADDING (for
+       encrypt/decrypt) or RSA_PKCS1_PADDING (for private_encrypt/public_decrypt). */
     crypt_pad = p_rsa->padding;
-    if (p_rsa->padding != RSA_NO_PADDING) {
+    if (is_encrypt && p_rsa->padding != RSA_NO_PADDING) {
         crypt_pad = RSA_PKCS1_OAEP_PADDING;
     }
     THROW(EVP_PKEY_CTX_set_rsa_padding(ctx, crypt_pad) > 0);
@@ -817,9 +820,9 @@ encrypt(p_rsa, p_plaintext)
     SV* p_plaintext;
   CODE:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_encrypt, EVP_PKEY_encrypt_init, 1 /* public */);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_encrypt, EVP_PKEY_encrypt_init, 1 /* public */, 1 /* is_encrypt */);
 #else
-    RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_public_encrypt);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_public_encrypt, 1 /* is_encrypt */);
 #endif
   OUTPUT:
     RETVAL
@@ -834,9 +837,9 @@ decrypt(p_rsa, p_ciphertext)
         croak("Public keys cannot decrypt");
     }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_decrypt, EVP_PKEY_decrypt_init, 0 /* private */);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_decrypt, EVP_PKEY_decrypt_init, 0 /* private */, 1 /* is_encrypt */);
 #else
-    RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_private_decrypt);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_private_decrypt, 1 /* is_encrypt */);
 #endif
   OUTPUT:
     RETVAL
@@ -851,9 +854,9 @@ private_encrypt(p_rsa, p_plaintext)
         croak("Public keys cannot private_encrypt");
     }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_sign, EVP_PKEY_sign_init,  0 /* private */);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, EVP_PKEY_sign, EVP_PKEY_sign_init,  0 /* private */, 0 /* is_encrypt */);
 #else
-    RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_private_encrypt);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_private_encrypt, 0 /* is_encrypt */);
 #endif
   OUTPUT:
     RETVAL
@@ -864,9 +867,9 @@ public_decrypt(p_rsa, p_ciphertext)
     SV* p_ciphertext;
   CODE:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_verify_recover, EVP_PKEY_verify_recover_init, 1 /*public */);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_verify_recover, EVP_PKEY_verify_recover_init, 1 /*public */, 0 /* is_encrypt */);
 #else
-    RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_public_decrypt);
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_public_decrypt, 0 /* is_encrypt */);
 #endif
   OUTPUT:
     RETVAL
