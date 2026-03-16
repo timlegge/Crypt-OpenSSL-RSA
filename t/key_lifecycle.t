@@ -7,7 +7,7 @@ use Crypt::OpenSSL::RSA;
 Crypt::OpenSSL::Random::random_seed("OpenSSL needs at least 32 bytes.");
 Crypt::OpenSSL::RSA->import_random_seed();
 
-my $HAS_BIGNUM = $INC{'Crypt/OpenSSL/Bignum.pm'} ? 1 : 0;
+my $HAS_BIGNUM = eval { require Crypt::OpenSSL::Bignum; 1 } ? 1 : 0;
 
 # skip() reports skipped tests which count toward total, so plan must
 # always include them regardless of whether Bignum is available.
