@@ -521,11 +521,12 @@ generate_key(proto, bitsSV, exponent = 65537)
     unsigned long exponent;
   PREINIT:
     EVP_PKEY* rsa = NULL;
+    BIGNUM *e = NULL;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    EVP_PKEY_CTX *ctx;
+    EVP_PKEY_CTX *ctx = NULL;
+    int error = 0;
 #endif
   CODE:
-    BIGNUM *e;
     e = BN_new();
     BN_set_word(e, exponent);
 #if OPENSSL_VERSION_NUMBER < 0x00908000L
@@ -545,21 +546,18 @@ generate_key(proto, bitsSV, exponent = 65537)
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
-
-    if (!ctx
-        || EVP_PKEY_keygen_init(ctx) != 1
-        || EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, SvIV(bitsSV)) <= 0
-        || EVP_PKEY_CTX_set1_rsa_keygen_pubexp(ctx, e) <= 0
-        || EVP_PKEY_generate(ctx, &rsa) != 1
-        || rsa == NULL)
-    {
-        BN_free(e);
-        EVP_PKEY_CTX_free(ctx);
-        croakSsl(__FILE__, __LINE__);
-    }
-
+    THROW(ctx);
+    THROW(EVP_PKEY_keygen_init(ctx) == 1);
+    THROW(EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, SvIV(bitsSV)) > 0);
+    THROW(EVP_PKEY_CTX_set1_rsa_keygen_pubexp(ctx, e) > 0);
+    THROW(EVP_PKEY_generate(ctx, &rsa) == 1);
+err:
     BN_free(e);
+    e = NULL;
     EVP_PKEY_CTX_free(ctx);
+    ctx = NULL;
+    if (error)
+        croakSsl(__FILE__, __LINE__);
 #endif
     CHECK_OPEN_SSL(rsa);
     RETVAL = make_rsa_obj(proto, rsa);
