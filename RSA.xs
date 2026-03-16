@@ -623,7 +623,7 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         }
         else if (!q)
         {
-            q = BN_new();
+            THROW(q = BN_new());
             THROW(BN_div(q, NULL, n, p, ctx));
         }
 #if OLD_CRUFTY_SSL_VERSION
@@ -686,6 +686,12 @@ _new_key_from_parameters(proto, n, e, d, p, q)
 #endif
 #endif
         dmp1 = dmq1 = iqmp = NULL;
+        BN_CTX_free(ctx);
+        ctx = NULL;
+        BN_clear_free(p_minus_1);
+        p_minus_1 = NULL;
+        BN_clear_free(q_minus_1);
+        q_minus_1 = NULL;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
         OSSL_PARAM_BLD_free(params_build);
         params_build = NULL;
