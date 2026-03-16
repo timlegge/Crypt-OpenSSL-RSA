@@ -73,9 +73,16 @@ typedef struct
 void croakSsl(char* p_file, int p_line)
 {
     const char* errorReason;
-    /* Just return the top error on the stack */
-    errorReason = ERR_reason_error_string(ERR_get_error());
-    ERR_clear_error();
+    unsigned long last_err = 0;
+    unsigned long err;
+    /* Drain the error queue and use the last (most recent) error,
+       which is typically the most descriptive.  This also prevents
+       stale errors from a previous eval-caught failure from leaking
+       into the next croak message. */
+    while ((err = ERR_get_error()) != 0) {
+        last_err = err;
+    }
+    errorReason = ERR_reason_error_string(last_err);
     croak("%s:%d: OpenSSL error: %s", p_file, p_line,
           errorReason ? errorReason : "(unknown error)");
 }
