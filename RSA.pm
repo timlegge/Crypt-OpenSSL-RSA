@@ -50,6 +50,8 @@ sub get_key_parameters {
     return map { $_ ? Crypt::OpenSSL::Bignum->bless_pointer($_) : undef } shift->_get_key_parameters();
 }
 
+*get_public_key_pkcs1_string = \&get_public_key_string;
+
 1;
 
 __END__
@@ -196,6 +198,13 @@ header and footer lines:
 
   -----BEGIN RSA PUBLIC KEY------
   -----END RSA PUBLIC KEY------
+
+=item get_public_key_pkcs1_string
+
+Alias for C<get_public_key_string>.  Returns the same PKCS#1
+C<RSAPublicKey> PEM format (C<BEGIN RSA PUBLIC KEY>).  Provided for
+naming symmetry with the import method C<new_public_key> (which
+auto-detects PKCS#1 vs X.509) and with C<get_public_key_x509_string>.
 
 =item get_public_key_x509_string
 
