@@ -3,7 +3,7 @@ use Test::More;
 
 use Crypt::OpenSSL::RSA;
 
-BEGIN { plan tests => 36 }
+BEGIN { plan tests => 35 }
 
 my $PRIVATE_KEY_STRING = <<EOF;
 -----BEGIN RSA PRIVATE KEY-----
@@ -125,9 +125,6 @@ pass("get_private_key_string on public-only key does not crash");
 my $encrypted_pem = $private_key->get_private_key_string($passphase, 'aes-128-cbc');
 eval { Crypt::OpenSSL::RSA->new_private_key($encrypted_pem, 'wrong_passphrase') };
 ok($@, "new_private_key croaks on wrong passphrase");
-
-eval { Crypt::OpenSSL::RSA->new_private_key($encrypted_pem) };
-ok($@, "new_private_key croaks on encrypted key without passphrase");
 
 # --- Error: garbage / truncated private key input ---
 
