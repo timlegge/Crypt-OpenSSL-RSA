@@ -31,8 +31,13 @@ sub new_public_key {
 }
 
 sub new_key_from_parameters {
-    my ( $proto, $n, $e, $d, $p, $q ) = @_;
-    return $proto->_new_key_from_parameters( map { $_ ? $_->pointer_copy() : 0 } $n, $e, $d, $p, $q );
+    my ( $proto, $n, $e, $d, $p, $q, %opts ) = @_;
+    my $rsa = $proto->_new_key_from_parameters( map { $_ ? $_->pointer_copy() : 0 } $n, $e, $d, $p, $q );
+    if ( $opts{check} && $rsa && $rsa->is_private() ) {
+        $rsa->check_key()
+            or croak("RSA key check failed: inconsistent key parameters");
+    }
+    return $rsa;
 }
 
 sub import_random_seed {
@@ -152,6 +157,19 @@ Crypt::OpenSSL::RSA object using these values.  If p and q are
 provided and d is undef, d is computed.  Note that while p and q are
 not necessary for a private key, their presence will speed up
 computation.
+
+An optional C<check =E<gt> 1> parameter can be passed after the key
+components to validate the key immediately after construction:
+
+  my $rsa = Crypt::OpenSSL::RSA->new_key_from_parameters(
+      $n, $e, $d, $p, $q, check => 1
+  );
+
+When enabled, C<check_key()> is called on the resulting key.  If the
+key parameters are inconsistent (e.g. wrong CRT values, mismatched
+n/e/d/p/q), the constructor will croak instead of returning an object
+that fails at first use.  The check is only performed on private keys;
+public-only keys (n and e only) are returned without validation.
 
 =item import_random_seed
 
