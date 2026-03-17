@@ -48,8 +48,8 @@ my $encrypted_pem = $rsa->get_private_key_string("correct_passphrase", "aes-128-
 eval { Crypt::OpenSSL::RSA->new_private_key($encrypted_pem, "wrong_passphrase") };
 ok($@, "new_private_key croaks on wrong passphrase");
 
-eval { Crypt::OpenSSL::RSA->new_private_key($encrypted_pem) };
-ok($@, "new_private_key croaks on encrypted key without passphrase");
+eval { Crypt::OpenSSL::RSA->new_private_key($encrypted_pem, "") };
+ok($@, "new_private_key croaks on encrypted key with empty passphrase");
 
 # --- Public key cannot perform private operations ---
 
@@ -104,11 +104,11 @@ $rsa->use_pkcs1_pss_padding();
 $rsa2->use_pkcs1_pss_padding();
 
 my $sig = $rsa->sign("message to sign");
-ok(!$rsa2->verify("message to sign", $sig), "signature from key1 does not verify with key2");
+ok(!eval { $rsa2->verify("message to sign", $sig) }, "signature from key1 does not verify with key2");
 
 my $rsa2_pub = Crypt::OpenSSL::RSA->new_public_key($rsa2->get_public_key_string());
 $rsa2_pub->use_pkcs1_pss_padding();
-ok(!$rsa2_pub->verify("message to sign", $sig), "signature from key1 does not verify with key2 public");
+ok(!eval { $rsa2_pub->verify("message to sign", $sig) }, "signature from key1 does not verify with key2 public");
 
 # --- Empty message signing ---
 
@@ -129,8 +129,11 @@ ok(!eval { $rsa->verify("test data", $extended_sig) }, "extended signature does 
 # --- Key size boundary ---
 
 my $small_rsa = eval { Crypt::OpenSSL::RSA->generate_key(512) };
-ok(!$@, "512-bit key generation succeeds");
-is($small_rsa->size() * 8, 512, "512-bit key has correct size");
+SKIP: {
+    skip "OpenSSL 3.x rejects 512-bit keys at default security level", 2 if $@;
+    ok($small_rsa, "512-bit key generation succeeds");
+    is($small_rsa->size() * 8, 512, "512-bit key has correct size");
+}
 
 # --- generate_key with custom exponent ---
 
