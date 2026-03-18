@@ -37,7 +37,7 @@
 #define PEM_read_bio_PrivateKey PEM_read_bio_PrivateKey
 #define PEM_read_bio_RSAPublicKey PEM_read_bio_PUBKEY
 #define PEM_read_bio_RSA_PUBKEY PEM_read_bio_PUBKEY
-#define PEM_write_bio_PUBKEY(o,p) PEM_write_bio_PUBKEY(o,p);
+#define PEM_write_bio_PUBKEY(o,p) PEM_write_bio_PUBKEY(o,p)
 #define PEM_write_bio_PrivateKey_traditional(m, n, o, p, q, r, s) PEM_write_bio_PrivateKey_traditional(m, n, o, p, q, r, s)
 #else
 #define UNSIGNED_CHAR char
@@ -490,8 +490,12 @@ get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_u
     }
 
     CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
-    PEM_write_bio_PrivateKey_traditional(
-        stringBIO, p_rsa->rsa, enc, (unsigned char* ) passphase, passphaseLength, NULL, NULL);
+    if (!PEM_write_bio_PrivateKey_traditional(
+        stringBIO, p_rsa->rsa, enc, (unsigned char* ) passphase, passphaseLength, NULL, NULL))
+    {
+        BIO_free(stringBIO);
+        croakSsl(__FILE__, __LINE__);
+    }
     RETVAL = extractBioString(stringBIO);
 
   OUTPUT:
@@ -525,7 +529,11 @@ get_public_key_string(p_rsa)
         CHECK_OPEN_SSL(0);
     pubkey_done:
 #else
-    PEM_write_bio_RSAPublicKey(stringBIO, p_rsa->rsa);
+    if (!PEM_write_bio_RSAPublicKey(stringBIO, p_rsa->rsa))
+    {
+        BIO_free(stringBIO);
+        croakSsl(__FILE__, __LINE__);
+    }
 #endif
     RETVAL = extractBioString(stringBIO);
 
@@ -539,7 +547,11 @@ get_public_key_x509_string(p_rsa)
     BIO* stringBIO;
   CODE:
     CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
-    PEM_write_bio_PUBKEY(stringBIO, p_rsa->rsa);
+    if (!PEM_write_bio_PUBKEY(stringBIO, p_rsa->rsa))
+    {
+        BIO_free(stringBIO);
+        croakSsl(__FILE__, __LINE__);
+    }
     RETVAL = extractBioString(stringBIO);
 
   OUTPUT:
