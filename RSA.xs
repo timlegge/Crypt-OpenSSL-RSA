@@ -685,6 +685,11 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         THROW(RSA_set0_crt_params(rsa, dmp1, dmq1, iqmp));
 #endif
 #endif
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        BN_clear_free(dmp1);
+        BN_clear_free(dmq1);
+        BN_clear_free(iqmp);
+#endif
         dmp1 = dmq1 = iqmp = NULL;
         BN_CTX_free(ctx);
         ctx = NULL;
