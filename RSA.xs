@@ -231,20 +231,40 @@ unsigned char* get_message_digest(SV* text_SV, int hash_method)
 #endif
             break;
         case NID_sha1:
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+            return EVP_Q_digest(NULL, "SHA1", NULL, text, text_length, md, NULL) ? md : NULL;
+#else
             return SHA1(text, text_length, md);
+#endif
             break;
 #ifdef SHA512_DIGEST_LENGTH
         case NID_sha224:
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+            return EVP_Q_digest(NULL, "SHA224", NULL, text, text_length, md, NULL) ? md : NULL;
+#else
             return SHA224(text, text_length, md);
+#endif
             break;
         case NID_sha256:
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+            return EVP_Q_digest(NULL, "SHA256", NULL, text, text_length, md, NULL) ? md : NULL;
+#else
             return SHA256(text, text_length, md);
+#endif
             break;
         case NID_sha384:
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+            return EVP_Q_digest(NULL, "SHA384", NULL, text, text_length, md, NULL) ? md : NULL;
+#else
             return SHA384(text, text_length, md);
+#endif
             break;
         case NID_sha512:
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+            return EVP_Q_digest(NULL, "SHA512", NULL, text, text_length, md, NULL) ? md : NULL;
+#else
             return SHA512(text, text_length, md);
+#endif
             break;
 #endif
         case NID_ripemd160:
