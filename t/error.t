@@ -48,8 +48,8 @@ my $encrypted_pem = $rsa->get_private_key_string("correct_passphrase", "aes-128-
 eval { Crypt::OpenSSL::RSA->new_private_key($encrypted_pem, "wrong_passphrase") };
 ok($@, "new_private_key croaks on wrong passphrase");
 
-eval { Crypt::OpenSSL::RSA->new_private_key($encrypted_pem, "") };
-ok($@, "new_private_key croaks on encrypted key with empty passphrase");
+# Note: testing with no passphrase or empty passphrase is intentionally
+# omitted — OpenSSL may prompt on the terminal, hanging non-interactive runs.
 
 # --- Public key cannot perform private operations ---
 
