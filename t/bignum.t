@@ -89,7 +89,7 @@ sub check_key_parameters    # runs 8 tests
             $e, $d, undef, $q
         );
     };
-    like( $@, qr/OpenSSL error: p not prime/, "bad n with q triggers 'p not prime' error" );
+    like( $@, qr/OpenSSL error: (?:p not prime|d e not congruent to 1)/, "bad n with q triggers key validation error" );
 
     #try again, to make sure the error queue was properly flushed
     eval {
@@ -98,5 +98,5 @@ sub check_key_parameters    # runs 8 tests
             $e, $d, undef, $q
         );
     };
-    like( $@, qr/OpenSSL error: p not prime/, "error queue flushed: repeat triggers same error" );
+    like( $@, qr/OpenSSL error: (?:p not prime|d e not congruent to 1)/, "error queue flushed: repeat triggers same error" );
 }
