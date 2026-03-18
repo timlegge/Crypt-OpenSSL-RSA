@@ -495,7 +495,7 @@ get_public_key_string(p_rsa)
 
     goto pubkey_done;
     err:
-        if (ctx) OSSL_ENCODER_CTX_free(ctx);
+        if (ctx) { OSSL_ENCODER_CTX_free(ctx); ctx = NULL; }
         BIO_free(stringBIO);
         CHECK_OPEN_SSL(0);
     pubkey_done:
