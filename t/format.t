@@ -3,7 +3,7 @@ use Test::More;
 
 use Crypt::OpenSSL::RSA;
 
-BEGIN { plan tests => 35 }
+BEGIN { plan tests => 39 }
 
 my $PRIVATE_KEY_STRING = <<EOF;
 -----BEGIN RSA PRIVATE KEY-----
@@ -77,6 +77,12 @@ is( $public_key->get_public_key_x509_string(), $PUBLIC_KEY_X509_STRING, "PKCS1 k
 ok( $public_key = Crypt::OpenSSL::RSA->new_public_key($PUBLIC_KEY_X509_STRING), "load X509 public key" );
 is( $public_key->get_public_key_string(), $PUBLIC_KEY_PKCS1_STRING, "X509 key exports to PKCS1 correctly" );
 is( $public_key->get_public_key_x509_string(), $PUBLIC_KEY_X509_STRING, "X509 public key round-trips" );
+
+# get_public_key_pkcs1_string is an alias for get_public_key_string
+is( $private_key->get_public_key_pkcs1_string(), $PUBLIC_KEY_PKCS1_STRING, "get_public_key_pkcs1_string returns PKCS1 from private key" );
+is( $public_key->get_public_key_pkcs1_string(), $PUBLIC_KEY_PKCS1_STRING, "get_public_key_pkcs1_string returns PKCS1 from public key" );
+is( $private_key->get_public_key_pkcs1_string(), $private_key->get_public_key_string(), "pkcs1 alias matches get_public_key_string on private key" );
+ok( $public_key = Crypt::OpenSSL::RSA->new_public_key($private_key->get_public_key_pkcs1_string()), "new_public_key accepts output of get_public_key_pkcs1_string" );
 
 my $passphase = '123456';
 ok( $private_key = Crypt::OpenSSL::RSA->new_private_key( $ENCRYPT_PRIVATE_KEY_STRING, $passphase ), "load encrypted private key" );
