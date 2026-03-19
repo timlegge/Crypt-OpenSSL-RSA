@@ -25,8 +25,21 @@ sub new_public_key {
     elsif ( $p_key_string =~ /^-----BEGIN PUBLIC KEY-----/ ) {
         return $proto->_new_public_key_x509($p_key_string);
     }
+    elsif ( $p_key_string =~ /^-----/ ) {
+        croak "unrecognized key format: PEM header not recognized as RSA public key. "
+            . "Expected '-----BEGIN RSA PUBLIC KEY-----' (PKCS#1) or "
+            . "'-----BEGIN PUBLIC KEY-----' (X.509)";
+    }
+    elsif ( length($p_key_string) > 0 && substr($p_key_string, 0, 1) eq "\x30" ) {
+        # ASN.1 SEQUENCE tag detected — likely DER-encoded key.
+        # Try X.509 SubjectPublicKeyInfo first (most common), then PKCS#1 RSAPublicKey.
+        my $rsa = eval { $proto->_new_public_key_x509_der($p_key_string) };
+        return $rsa if $rsa;
+        return $proto->_new_public_key_pkcs1_der($p_key_string);
+    }
     else {
-        croak "unrecognized key format";
+        croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
+            . "or DER-encoded key (binary ASN.1 data)";
     }
 }
 
@@ -125,9 +138,15 @@ this (never documented) behavior is no longer the case.
 =item new_public_key
 
 Create a new C<Crypt::OpenSSL::RSA> object by loading a public key in
-from a string containing Base64/DER-encoding of either the PKCS1 or
-X.509 representation of the key.  The string should include the
-C<-----BEGIN...-----> and C<-----END...-----> lines.
+from a string containing either PEM or DER encoding of the PKCS#1 or
+X.509 representation of the key.
+
+For PEM keys, the string should include the C<-----BEGIN...-----> and
+C<-----END...-----> lines.  Both C<BEGIN RSA PUBLIC KEY> (PKCS#1) and
+C<BEGIN PUBLIC KEY> (X.509/SubjectPublicKeyInfo) formats are supported.
+
+DER-encoded keys (raw binary ASN.1) are also accepted and the format
+(PKCS#1 vs X.509) is auto-detected.
 
 The padding is set to PKCS1_OAEP, but can be changed with the
 C<use_xxx_padding> methods.

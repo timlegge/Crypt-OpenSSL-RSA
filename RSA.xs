@@ -25,6 +25,7 @@
 #include <openssl/core_names.h>
 #include <openssl/param_build.h>
 #include <openssl/encoder.h>
+#include <openssl/decoder.h>
 #endif
 
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
@@ -503,6 +504,68 @@ _new_public_key_x509(proto, key_string_SV)
   CODE:
     RETVAL = make_rsa_obj(
         proto, _load_rsa_key(key_string_SV, PEM_read_bio_RSA_PUBKEY, &PL_sv_undef));
+  OUTPUT:
+    RETVAL
+
+SV*
+_new_public_key_x509_der(proto, key_string_SV)
+    SV* proto;
+    SV* key_string_SV;
+  PREINIT:
+    STRLEN keyStringLength;
+    char* keyString;
+    EVP_PKEY* pkey;
+    BIO* bio;
+  CODE:
+    keyString = SvPV(key_string_SV, keyStringLength);
+    CHECK_OPEN_SSL(bio = BIO_new_mem_buf(keyString, keyStringLength));
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    pkey = d2i_PUBKEY_bio(bio, NULL);
+#else
+    pkey = d2i_RSA_PUBKEY_bio(bio, NULL);
+#endif
+    BIO_free(bio);
+    CHECK_OPEN_SSL(pkey);
+    RETVAL = make_rsa_obj(proto, pkey);
+  OUTPUT:
+    RETVAL
+
+SV*
+_new_public_key_pkcs1_der(proto, key_string_SV)
+    SV* proto;
+    SV* key_string_SV;
+  PREINIT:
+    STRLEN keyStringLength;
+    char* keyString;
+    EVP_PKEY* pkey;
+    BIO* bio;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    OSSL_DECODER_CTX* dctx;
+#endif
+  CODE:
+    keyString = SvPV(key_string_SV, keyStringLength);
+    CHECK_OPEN_SSL(bio = BIO_new_mem_buf(keyString, keyStringLength));
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    pkey = NULL;
+    dctx = OSSL_DECODER_CTX_new_for_pkey(&pkey, "DER", "type-specific",
+                                          "RSA", OSSL_KEYMGMT_SELECT_PUBLIC_KEY,
+                                          NULL, NULL);
+    if (!dctx) {
+        BIO_free(bio);
+        croakSsl(__FILE__, __LINE__);
+    }
+    if (!OSSL_DECODER_from_bio(dctx, bio)) {
+        OSSL_DECODER_CTX_free(dctx);
+        BIO_free(bio);
+        croakSsl(__FILE__, __LINE__);
+    }
+    OSSL_DECODER_CTX_free(dctx);
+#else
+    pkey = d2i_RSAPublicKey_bio(bio, NULL);
+#endif
+    BIO_free(bio);
+    CHECK_OPEN_SSL(pkey);
+    RETVAL = make_rsa_obj(proto, pkey);
   OUTPUT:
     RETVAL
 
