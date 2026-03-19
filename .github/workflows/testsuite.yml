@@ -67,13 +67,14 @@ jobs:
           make
       - name: Run tests under Valgrind
         run: |
-          valgrind \
-            --leak-check=full \
-            --show-leak-kinds=definite \
-            --error-exitcode=1 \
-            --trace-children=yes \
-            --child-silent-after-fork=yes \
-            prove -v t/*.t
+          for t in t/*.t; do
+            echo "=== valgrind: $t ==="
+            valgrind \
+              --leak-check=full \
+              --show-leak-kinds=definite \
+              --error-exitcode=1 \
+              perl -Iblib/lib -Iblib/arch "$t" || exit 1
+          done
 
   openssl-matrix:
     timeout-minutes: 5
