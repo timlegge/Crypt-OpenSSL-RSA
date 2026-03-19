@@ -223,12 +223,33 @@ unsigned char* get_message_digest(SV* text_SV, int hash_method)
 
     switch(hash_method)
     {
-        case NID_md5:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        case NID_md5:
             return EVP_Q_digest(NULL, "MD5", NULL, text, text_length, md, NULL) ? md : NULL;
-#else
-            return MD5(text, text_length, md);
+            break;
+        case NID_sha1:
+            return EVP_Q_digest(NULL, "SHA1", NULL, text, text_length, md, NULL) ? md : NULL;
+            break;
+#ifdef SHA512_DIGEST_LENGTH
+        case NID_sha224:
+            return EVP_Q_digest(NULL, "SHA224", NULL, text, text_length, md, NULL) ? md : NULL;
+            break;
+        case NID_sha256:
+            return EVP_Q_digest(NULL, "SHA256", NULL, text, text_length, md, NULL) ? md : NULL;
+            break;
+        case NID_sha384:
+            return EVP_Q_digest(NULL, "SHA384", NULL, text, text_length, md, NULL) ? md : NULL;
+            break;
+        case NID_sha512:
+            return EVP_Q_digest(NULL, "SHA512", NULL, text, text_length, md, NULL) ? md : NULL;
+            break;
 #endif
+        case NID_ripemd160:
+            return EVP_Q_digest(NULL, "RIPEMD160", NULL, text, text_length, md, NULL) ? md : NULL;
+            break;
+#else
+        case NID_md5:
+            return MD5(text, text_length, md);
             break;
         case NID_sha1:
             return SHA1(text, text_length, md);
@@ -248,12 +269,9 @@ unsigned char* get_message_digest(SV* text_SV, int hash_method)
             break;
 #endif
         case NID_ripemd160:
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-            return EVP_Q_digest(NULL, "RIPEMD160", NULL, text, text_length, md, NULL) ? md : NULL;
-#else
             return RIPEMD160(text, text_length, md);
-#endif
             break;
+#endif
 #ifdef WHIRLPOOL_DIGEST_LENGTH
         case NID_whirlpool:
             return WHIRLPOOL(text, text_length, md);
