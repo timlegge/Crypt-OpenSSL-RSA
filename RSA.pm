@@ -242,6 +242,20 @@ The cipher algorithm used to protect the private key. Default to
 
 =back
 
+=item get_private_key_pkcs8_string
+
+Return the Base64/DER-encoded PKCS#8 representation of the private
+key.  This string has header and footer lines:
+
+  -----BEGIN PRIVATE KEY------
+  -----END PRIVATE KEY------
+
+This is the format produced by C<openssl pkey -outform PEM>, and is
+the private-key counterpart of C<get_public_key_x509_string>.
+
+Accepts the same optional passphrase and cipher-name parameters as
+C<get_private_key_string>.
+
 =item encrypt
 
 Encrypt a binary "string" using the public (portion of the) key.

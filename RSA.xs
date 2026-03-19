@@ -501,6 +501,64 @@ get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_u
     RETVAL
 
 SV*
+get_private_key_pkcs8_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_undef)
+    rsaData* p_rsa;
+    SV* passphase_SV;
+    SV* cipher_name_SV;
+  PREINIT:
+    BIO* stringBIO;
+    char* passphase = NULL;
+    STRLEN passphaseLength = 0;
+    char* cipher_name;
+    const EVP_CIPHER* enc = NULL;
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+    EVP_PKEY* pkey = NULL;
+    int error = 0;
+#endif
+  CODE:
+    if (SvPOK(cipher_name_SV) && !SvPOK(passphase_SV)) {
+        croak("Passphrase is required for cipher");
+    }
+    if (SvPOK(passphase_SV)) {
+        passphase = SvPV(passphase_SV, passphaseLength);
+        if (SvPOK(cipher_name_SV)) {
+            cipher_name = SvPV_nolen(cipher_name_SV);
+        }
+        else {
+            cipher_name = "des3";
+        }
+        enc = EVP_get_cipherbyname(cipher_name);
+        if (enc == NULL) {
+            croak("Unsupported cipher: %s", cipher_name);
+        }
+    }
+
+    CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    CHECK_OPEN_SSL_BIO(PEM_write_bio_PrivateKey(
+        stringBIO, p_rsa->rsa, enc, (unsigned char*) passphase, passphaseLength, NULL, NULL), stringBIO);
+#else
+    pkey = EVP_PKEY_new();
+    THROW(pkey != NULL);
+    THROW(EVP_PKEY_set1_RSA(pkey, p_rsa->rsa));
+    THROW(PEM_write_bio_PrivateKey(
+        stringBIO, pkey, enc, (unsigned char*) passphase, passphaseLength, NULL, NULL));
+    EVP_PKEY_free(pkey);
+    pkey = NULL;
+
+    goto pkcs8_done;
+    err:
+        if (pkey) { EVP_PKEY_free(pkey); pkey = NULL; }
+        BIO_free(stringBIO);
+        CHECK_OPEN_SSL(0);
+    pkcs8_done:
+#endif
+    RETVAL = extractBioString(stringBIO);
+
+  OUTPUT:
+    RETVAL
+
+SV*
 get_public_key_string(p_rsa)
     rsaData* p_rsa;
   PREINIT:
