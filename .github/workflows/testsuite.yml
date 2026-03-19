@@ -40,6 +40,41 @@ jobs:
         run: perl -I$(pwd) Makefile.PL
       - run: make && ( make test || prove -wbvm t/*.t )
 
+#
+# Valgrind memory leak detection on OpenSSL 3.x
+#
+
+  valgrind:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    needs: [ubuntu]
+    name: "Valgrind (debian:bookworm)"
+    container: debian:bookworm
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y openssl perl make gcc libssl-dev sudo curl valgrind
+      - name: uses install-with-cpm
+        uses: perl-actions/install-with-cpm@v1
+        with:
+          cpanfile: "cpanfile"
+      - name: Build
+        run: |
+          perl -I$(pwd) Makefile.PL
+          make
+      - name: Run tests under Valgrind
+        run: |
+          valgrind \
+            --leak-check=full \
+            --show-leak-kinds=definite \
+            --error-exitcode=1 \
+            --trace-children=yes \
+            --child-silent-after-fork=yes \
+            prove -v t/*.t
+
   openssl-matrix:
     timeout-minutes: 5
     env:
