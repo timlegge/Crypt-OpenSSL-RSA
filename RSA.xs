@@ -484,22 +484,28 @@ get_public_key_string(p_rsa)
     rsaData* p_rsa;
   PREINIT:
     BIO* stringBIO;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    OSSL_ENCODER_CTX *ctx = NULL;
+    int error = 0;
+#endif
   CODE:
     CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    OSSL_ENCODER_CTX *ctx = NULL;
-
     ctx = OSSL_ENCODER_CTX_new_for_pkey(p_rsa->rsa, OSSL_KEYMGMT_SELECT_PUBLIC_KEY,
             "PEM", "PKCS1", NULL);
-    if (!ctx || !OSSL_ENCODER_CTX_get_num_encoders(ctx)
-            || OSSL_ENCODER_to_bio(ctx, stringBIO) != 1)
-    {
-        OSSL_ENCODER_CTX_free(ctx);
-        BIO_free(stringBIO);
-        croakSsl(__FILE__, __LINE__);
-    }
+    THROW(ctx != NULL && OSSL_ENCODER_CTX_get_num_encoders(ctx));
+
+    THROW(OSSL_ENCODER_to_bio(ctx, stringBIO) == 1);
 
     OSSL_ENCODER_CTX_free(ctx);
+    ctx = NULL;
+
+    goto pubkey_done;
+    err:
+        if (ctx) { OSSL_ENCODER_CTX_free(ctx); ctx = NULL; }
+        BIO_free(stringBIO);
+        CHECK_OPEN_SSL(0);
+    pubkey_done:
 #else
     PEM_write_bio_RSAPublicKey(stringBIO, p_rsa->rsa);
 #endif
