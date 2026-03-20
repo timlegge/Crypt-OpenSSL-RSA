@@ -10,7 +10,7 @@ Crypt::OpenSSL::RSA->import_random_seed();
 my $HAS_BIGNUM = $INC{'Crypt/OpenSSL/Bignum.pm'} ? 1 : 0;
 
 $HAS_BIGNUM
-    ? plan( tests => 7 )
+    ? plan( tests => 9 )
     : plan( skip_all => "Crypt::OpenSSL::Bignum required for check_param tests" );
 
 my $rsa = Crypt::OpenSSL::RSA->generate_key(2048);
@@ -59,4 +59,14 @@ my ( $n, $e, $d, $p, $q ) = $rsa->get_key_parameters();
         Crypt::OpenSSL::RSA->new_key_from_parameters( $n, $e, $d, $p, $q );
     };
     ok( !$@, "without check option, valid params succeed as before" );
+}
+
+# 5. check_key() returns exactly 1, not just truthy
+# OpenSSL's RSA_check_key/EVP_PKEY_private_check can return -1 on error,
+# which is truthy in Perl.  The XS code must normalize to 0/1.
+{
+    cmp_ok( $rsa->check_key(), '==', 1,
+        "check_key returns exactly 1 for valid key (not raw OpenSSL int)" );
+    ok( ref(\($rsa->check_key())) ne 'GLOB',
+        "check_key returns a plain scalar" );
 }
