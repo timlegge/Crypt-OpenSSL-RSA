@@ -38,7 +38,7 @@ jobs:
           cpanfile: "cpanfile"
       - name: Makefile.PL
         run: perl -I$(pwd) Makefile.PL
-      - run: make && ( make test || prove -wbvm t/*.t )
+      - run: make && prove -wbvm t/*.t
 
   openssl-matrix:
     timeout-minutes: 5
@@ -136,7 +136,7 @@ jobs:
           # not available < 5.12
           cpanm --notest Test::Kwalitee ||:
       - run: perl Makefile.PL
-      - run: make && ( make test || prove -wbvm t/*.t )
+      - run: make && prove -wbvm t/*.t
 
 #
 # Windows
@@ -177,7 +177,7 @@ jobs:
       - name: Deps for testing
         run: cpanm --notest Crypt::OpenSSL::Random Crypt::OpenSSL::Guess
       - run: perl Makefile.PL
-      - run: make && ( make test || prove -wbvm t/*.t )
+      - run: make && prove -wbvm t/*.t
 
 #
 # macOS — covers LibreSSL (system default) and Homebrew OpenSSL 3.x
@@ -223,4 +223,4 @@ jobs:
         run: cpanm --notest Crypt::OpenSSL::Guess Crypt::OpenSSL::Random Crypt::OpenSSL::Bignum
       - name: Makefile.PL
         run: perl Makefile.PL
-      - run: make && ( make test || prove -wbvm t/*.t )
+      - run: make && prove -wbvm t/*.t
