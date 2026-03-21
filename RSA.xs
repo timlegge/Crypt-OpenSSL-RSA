@@ -451,6 +451,10 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
               "Use use_pkcs1_oaep_padding() for encryption, or use_pkcs1_padding() with sign()/verify().");
     }
 
+    if(is_encrypt && p_rsa->padding == RSA_PKCS1_PSS_PADDING) {
+        croak("PKCS#1 v2.1 RSA-PSS cannot be used for encryption operations call \"use_pkcs1_oaep_padding\" instead.");
+    }
+
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 
     EVP_PKEY_CTX *ctx = NULL;
@@ -458,11 +462,7 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
     int crypt_pad;
 
     if (is_encrypt) {
-        /* Encryption path: OAEP is the only safe padding for encrypt/decrypt.
-           PSS is for signatures only. */
-        if(p_rsa->padding == RSA_PKCS1_PSS_PADDING) {
-            croak("PKCS#1 v2.1 RSA-PSS cannot be used for encryption operations call \"use_pkcs1_oaep_padding\" instead.");
-        }
+        /* Encryption path: OAEP is the only safe padding for encrypt/decrypt. */
         crypt_pad = p_rsa->padding;
         if (p_rsa->padding != RSA_NO_PADDING) {
             crypt_pad = RSA_PKCS1_OAEP_PADDING;

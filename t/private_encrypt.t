@@ -80,12 +80,8 @@ is($rsa->decrypt($ciphertext), $plaintext, "decrypt with OAEP round-trips");
 
 $rsa->use_pkcs1_pss_padding();
 eval { $rsa->encrypt($plaintext) };
-if ($major ge '3') {
-    like($@, qr/RSA-PSS cannot be used for encryption/,
-         "encrypt with PSS still croaks on OpenSSL 3.x");
-} else {
-    ok($@, "encrypt with PSS fails on pre-3.x");
-}
+like($@, qr/RSA-PSS cannot be used for encryption/,
+     "encrypt with PSS still croaks");
 
 # --- Public key cannot private_encrypt ---
 
