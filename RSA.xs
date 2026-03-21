@@ -477,7 +477,7 @@ BOOT:
 #endif
 
 SV*
-new_private_key(proto, key_string_SV, passphase_SV=&PL_sv_undef)
+_new_private_key_pem(proto, key_string_SV, passphase_SV=&PL_sv_undef)
     SV* proto;
     SV* key_string_SV;
     SV* passphase_SV;
@@ -562,6 +562,45 @@ _new_public_key_pkcs1_der(proto, key_string_SV)
     OSSL_DECODER_CTX_free(dctx);
 #else
     pkey = d2i_RSAPublicKey_bio(bio, NULL);
+#endif
+    BIO_free(bio);
+    CHECK_OPEN_SSL(pkey);
+    RETVAL = make_rsa_obj(proto, pkey);
+  OUTPUT:
+    RETVAL
+
+SV*
+_new_private_key_der(proto, key_string_SV)
+    SV* proto;
+    SV* key_string_SV;
+  PREINIT:
+    STRLEN keyStringLength;
+    char* keyString;
+    EVP_PKEY* pkey;
+    BIO* bio;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    OSSL_DECODER_CTX* dctx;
+#endif
+  CODE:
+    keyString = SvPV(key_string_SV, keyStringLength);
+    CHECK_OPEN_SSL(bio = BIO_new_mem_buf(keyString, keyStringLength));
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    pkey = NULL;
+    dctx = OSSL_DECODER_CTX_new_for_pkey(&pkey, "DER", NULL,
+                                          "RSA", OSSL_KEYMGMT_SELECT_ALL,
+                                          NULL, NULL);
+    if (!dctx) {
+        BIO_free(bio);
+        croakSsl(__FILE__, __LINE__);
+    }
+    if (!OSSL_DECODER_from_bio(dctx, bio)) {
+        OSSL_DECODER_CTX_free(dctx);
+        BIO_free(bio);
+        croakSsl(__FILE__, __LINE__);
+    }
+    OSSL_DECODER_CTX_free(dctx);
+#else
+    pkey = d2i_PrivateKey_bio(bio, NULL);
 #endif
     BIO_free(bio);
     CHECK_OPEN_SSL(pkey);

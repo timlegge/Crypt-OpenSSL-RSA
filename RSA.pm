@@ -43,6 +43,21 @@ sub new_public_key {
     }
 }
 
+sub new_private_key {
+    my ( $proto, $p_key_string, @rest ) = @_;
+    if ( $p_key_string =~ /^-----/ ) {
+        return $proto->_new_private_key_pem($p_key_string, @rest);
+    }
+    elsif ( length($p_key_string) > 0 && substr($p_key_string, 0, 1) eq "\x30" ) {
+        # ASN.1 SEQUENCE tag detected — likely DER-encoded private key.
+        return $proto->_new_private_key_der($p_key_string);
+    }
+    else {
+        croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
+            . "or DER-encoded key (binary ASN.1 data)";
+    }
+}
+
 sub new_key_from_parameters {
     my ( $proto, $n, $e, $d, $p, $q, %opts ) = @_;
     my $rsa = $proto->_new_key_from_parameters( map { $_ ? $_->pointer_copy() : 0 } $n, $e, $d, $p, $q );
@@ -157,18 +172,23 @@ C<use_pkcs1_pss_padding> or C<use_pkcs1_padding> prior to signing operations.
 =item new_private_key
 
 Create a new C<Crypt::OpenSSL::RSA> object by loading a private key in
-from an string containing the Base64/DER encoding of the PKCS1
-representation of the key.  The string should include the
-C<-----BEGIN...-----> and C<-----END...-----> lines.  The padding is set to
-PKCS1_OAEP, but can be changed with C<use_xxx_padding>.
+from a string containing either PEM or DER encoding of the key.
 
-An optional parameter can be passed for passphase protected private key:
+For PEM keys, the string should include the C<-----BEGIN...-----> and
+C<-----END...-----> lines.  The padding is set to PKCS1_OAEP, but can
+be changed with C<use_xxx_padding>.
+
+DER-encoded keys (raw binary ASN.1) are also accepted.
+
+An optional parameter can be passed for passphrase-protected PEM private
+keys:
 
 =over
 
-=item passphase
+=item passphrase
 
-The passphase which protects the private key.
+The passphrase which protects the private key.  Note: passphrase
+protection is only supported for PEM-encoded keys.
 
 =back
 

@@ -4,7 +4,7 @@ use Test::More;
 use MIME::Base64;
 use Crypt::OpenSSL::RSA;
 
-BEGIN { plan tests => 14 }
+BEGIN { plan tests => 22 }
 
 # --- Generate a key pair for testing ---
 
@@ -69,6 +69,43 @@ ok( $pub_from_x509_der->verify($plaintext, $sig),
 $pub_from_pkcs1_der->use_sha256_hash();
 ok( $pub_from_pkcs1_der->verify($plaintext, $sig),
     "PKCS#1 DER-loaded key verifies signature" );
+
+# --- Private key DER support ---
+
+my $priv_pem = $rsa->get_private_key_string();
+my $priv_der = pem_to_der($priv_pem);
+
+is( ord(substr($priv_der, 0, 1)), 0x30, "Private key DER starts with SEQUENCE tag" );
+
+my $priv_from_der;
+ok( $priv_from_der = Crypt::OpenSSL::RSA->new_private_key($priv_der),
+    "new_private_key loads DER-encoded private key" );
+
+ok( $priv_from_der->is_private(),
+    "DER-loaded private key is recognized as private" );
+
+is( $priv_from_der->get_public_key_x509_string(), $x509_pem,
+    "DER-loaded private key exports same public key" );
+
+# Verify DER-loaded private key can sign and original public key can verify
+$priv_from_der->use_sha256_hash();
+my $sig2 = $priv_from_der->sign($plaintext);
+ok( $pub_from_x509_der->verify($plaintext, $sig2),
+    "signature from DER-loaded private key verifies" );
+
+# Error: DER-like data for private key
+eval { Crypt::OpenSSL::RSA->new_private_key("\x30\x00") };
+ok( $@, "new_private_key croaks on truncated DER data" );
+
+# Error: bogus binary data for private key
+eval { Crypt::OpenSSL::RSA->new_private_key("\x01\x02\x03\x04") };
+like( $@, qr/unrecognized key format/,
+    "new_private_key gives helpful error on random binary data" );
+
+# PEM private keys still work through the wrapper
+my $priv_from_pem;
+ok( $priv_from_pem = Crypt::OpenSSL::RSA->new_private_key($priv_pem),
+    "new_private_key still loads PEM-encoded private key" );
 
 # --- Error cases ---
 
