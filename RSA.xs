@@ -350,7 +350,7 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
     SIZE_T_INT to_length;
     int size;
     unsigned char* from;
-    UNSIGNED_CHAR *to;
+    UNSIGNED_CHAR *to = NULL;
     SV* sv;
 
     from = (unsigned char*) SvPV(p_from, from_length);
@@ -361,11 +361,9 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
               "Use use_pkcs1_oaep_padding() for encryption, or use_pkcs1_padding() with sign()/verify().");
     }
 
-    CHECK_NEW(to, size, UNSIGNED_CHAR);
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 
     if(p_rsa->padding == RSA_PKCS1_PSS_PADDING) {
-        Safefree(to);
         croak("PKCS#1 v2.1 RSA-PSS cannot be used for encryption operations call \"use_pkcs1_oaep_padding\" instead.");
     }
 
@@ -387,6 +385,8 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
     }
     THROW(EVP_PKEY_CTX_set_rsa_padding(ctx, crypt_pad) > 0);
     THROW(p_crypt(ctx, NULL, &to_length, from, from_length) == 1);
+    Newx(to, to_length, UNSIGNED_CHAR);
+    THROW(to);
     THROW(p_crypt(ctx, to, &to_length, from, from_length) == 1);
 
     EVP_PKEY_CTX_free(ctx);
@@ -398,6 +398,7 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
         CHECK_OPEN_SSL(0);
     crypt_done:
 #else
+    CHECK_NEW(to, size, UNSIGNED_CHAR);
     to_length = p_crypt(
        from_length, from, (unsigned char*) to, p_rsa->rsa, p_rsa->padding);
 #endif
