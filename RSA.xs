@@ -719,6 +719,14 @@ _new_key_from_parameters(proto, n, e, d, p, q)
 #endif
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        /* OSSL_PARAM_BLD_push_BN() copies the value, so the original
+           BIGNUMs (from pointer_copy or BN_new) must be freed here.
+           On pre-3.x, RSA_set0_key/RSA_set0_factors took ownership. */
+        BN_clear_free(n);
+        BN_clear_free(e);
+        BN_clear_free(d);
+        BN_clear_free(p);
+        BN_clear_free(q);
         BN_clear_free(dmp1);
         BN_clear_free(dmq1);
         BN_clear_free(iqmp);
@@ -760,6 +768,9 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         THROW( status > 0 && rsa != NULL );
         EVP_PKEY_CTX_free(pctx);
         pctx = NULL;
+        BN_clear_free(n);
+        BN_clear_free(e);
+        BN_clear_free(d);
 #else
         CHECK_OPEN_SSL(RSA_set0_key(rsa, n, e, d));
 #endif
@@ -771,10 +782,17 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         goto end;
 
     err:
-        //if (p) BN_clear_free(p);
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+        /* On 3.x, push_BN copies, so originals are always ours to free.
+           On pre-3.x, RSA_set0_key/set0_factors may have taken ownership,
+           so these are intentionally skipped (risk of double-free). */
+        BN_clear_free(n);
+        BN_clear_free(e);
+        BN_clear_free(d);
+        BN_clear_free(p);
+        BN_clear_free(q);
+#endif
         if (p_minus_1) BN_clear_free(p_minus_1);
-        //if (q) BN_clear_free(q);
-        //if (d) BN_clear_free(d);
         if (q_minus_1) BN_clear_free(q_minus_1);
         if (dmp1) BN_clear_free(dmp1);
         if (dmq1) BN_clear_free(dmq1);
