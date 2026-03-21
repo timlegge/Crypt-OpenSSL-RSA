@@ -9,10 +9,17 @@ README.md
 RSA.pm
 RSA.xs
 t/bignum.t
+t/check_param.t
+t/crypto.t
+t/error_queue.t
 t/fakelib/Crypt/OpenSSL/Bignum.pm
 t/format.t
+t/key_lifecycle.t
+t/padding.t
+t/private_crypt.t
 t/rsa.t
 t/sig_die.t
+t/sign_verify.t
 t/z_kwalitee.t
 t/z_meta.t
 t/z_perl_minimum_version.t
