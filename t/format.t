@@ -2,6 +2,9 @@ use strict;
 use Test::More;
 
 use Crypt::OpenSSL::RSA;
+use Crypt::OpenSSL::Guess qw(openssl_version);
+
+my ($major, $minor, $patch) = openssl_version();
 
 BEGIN { plan tests => 48 }
 
@@ -157,23 +160,29 @@ like($@, qr/unrecognized key format/, "new_public_key croaks on non-PEM input");
     like($pkcs8_pem, qr/-----END PRIVATE KEY-----\s*$/m, "PKCS#8 output has correct footer");
     unlike($pkcs8_pem, qr/BEGIN RSA PRIVATE KEY/, "PKCS#8 output is not PKCS#1 format");
 
-    # round-trip: import PKCS#8, re-export as PKCS#1, compare
-    my $reimported = Crypt::OpenSSL::RSA->new_private_key($pkcs8_pem);
-    is($reimported->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING,
-       "PKCS#8 round-trip: re-import then export as PKCS#1 matches original");
-
-    # PKCS#8 round-trip
-    is($reimported->get_private_key_pkcs8_string(), $pkcs8_pem,
-       "PKCS#8 round-trip: re-export as PKCS#8 matches");
-
-    # encrypted PKCS#8
+    # encrypted PKCS#8 export
     my $pass = 'test_pkcs8_pass';
     my $enc_pem = $rsa->get_private_key_pkcs8_string($pass, 'aes-128-cbc');
     like($enc_pem, qr/^-----BEGIN ENCRYPTED PRIVATE KEY-----/m,
          "encrypted PKCS#8 has correct header");
-    my $dec_rsa = Crypt::OpenSSL::RSA->new_private_key($enc_pem, $pass);
-    is($dec_rsa->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING,
-       "encrypted PKCS#8 round-trip decrypts to original key");
+
+    # Round-trip tests require new_private_key to read PKCS#8.  On pre-3.x
+    # PEM_read_bio_PrivateKey is macro'd to PEM_read_bio_RSAPrivateKey which
+    # only reads PKCS#1, so these must be skipped.
+    SKIP: {
+        skip "new_private_key cannot read PKCS#8 on OpenSSL < 3.x", 3
+            if $major < 3;
+
+        my $reimported = Crypt::OpenSSL::RSA->new_private_key($pkcs8_pem);
+        is($reimported->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING,
+           "PKCS#8 round-trip: re-import then export as PKCS#1 matches original");
+        is($reimported->get_private_key_pkcs8_string(), $pkcs8_pem,
+           "PKCS#8 round-trip: re-export as PKCS#8 matches");
+
+        my $dec_rsa = Crypt::OpenSSL::RSA->new_private_key($enc_pem, $pass);
+        is($dec_rsa->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING,
+           "encrypted PKCS#8 round-trip decrypts to original key");
+    }
 
     # error: cipher without passphrase
     eval { $rsa->get_private_key_pkcs8_string(undef, 'des3') };

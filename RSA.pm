@@ -247,8 +247,8 @@ The cipher algorithm used to protect the private key. Default to
 Return the Base64/DER-encoded PKCS#8 representation of the private
 key.  This string has header and footer lines:
 
-  -----BEGIN PRIVATE KEY------
-  -----END PRIVATE KEY------
+  -----BEGIN PRIVATE KEY-----
+  -----END PRIVATE KEY-----
 
 This is the format produced by C<openssl pkey -outform PEM>, and is
 the private-key counterpart of C<get_public_key_x509_string>.

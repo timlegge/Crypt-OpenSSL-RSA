@@ -27,6 +27,27 @@
 #include <openssl/encoder.h>
 #endif
 
+/* Pre-3.x helper for PKCS#8 export: wraps RSA* in a real EVP_PKEY and
+   writes PKCS#8 PEM.  Defined BEFORE the EVP_PKEY->RSA compatibility
+   macros so that EVP_PKEY, EVP_PKEY_new, EVP_PKEY_free, and
+   PEM_write_bio_PrivateKey resolve to their real OpenSSL symbols. */
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+static int _write_pkcs8_pem(BIO* bio, RSA* rsa, const EVP_CIPHER* enc,
+                            unsigned char* pass, int passlen)
+{
+    EVP_PKEY* pkey = EVP_PKEY_new();
+    int ok;
+    if (!pkey) return 0;
+    if (!EVP_PKEY_set1_RSA(pkey, rsa)) {
+        EVP_PKEY_free(pkey);
+        return 0;
+    }
+    ok = PEM_write_bio_PrivateKey(bio, pkey, enc, pass, passlen, NULL, NULL);
+    EVP_PKEY_free(pkey);
+    return ok;
+}
+#endif
+
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #define UNSIGNED_CHAR unsigned char
 #define SIZE_T_INT size_t
@@ -511,10 +532,6 @@ get_private_key_pkcs8_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&P
     STRLEN passphaseLength = 0;
     char* cipher_name;
     const EVP_CIPHER* enc = NULL;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-    EVP_PKEY* pkey = NULL;
-    int error = 0;
-#endif
   CODE:
     if (SvPOK(cipher_name_SV) && !SvPOK(passphase_SV)) {
         croak("Passphrase is required for cipher");
@@ -538,20 +555,8 @@ get_private_key_pkcs8_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&P
     CHECK_OPEN_SSL_BIO(PEM_write_bio_PrivateKey(
         stringBIO, p_rsa->rsa, enc, (unsigned char*) passphase, passphaseLength, NULL, NULL), stringBIO);
 #else
-    pkey = EVP_PKEY_new();
-    THROW(pkey != NULL);
-    THROW(EVP_PKEY_set1_RSA(pkey, p_rsa->rsa));
-    THROW(PEM_write_bio_PrivateKey(
-        stringBIO, pkey, enc, (unsigned char*) passphase, passphaseLength, NULL, NULL));
-    EVP_PKEY_free(pkey);
-    pkey = NULL;
-
-    goto pkcs8_done;
-    err:
-        if (pkey) { EVP_PKEY_free(pkey); pkey = NULL; }
-        BIO_free(stringBIO);
-        CHECK_OPEN_SSL(0);
-    pkcs8_done:
+    CHECK_OPEN_SSL_BIO(_write_pkcs8_pem(
+        stringBIO, p_rsa->rsa, enc, (unsigned char*) passphase, passphaseLength), stringBIO);
 #endif
     RETVAL = extractBioString(stringBIO);
 
