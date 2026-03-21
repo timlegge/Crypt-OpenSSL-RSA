@@ -1130,7 +1130,7 @@ sign(p_rsa, text_SV)
     THROW(md != NULL);
 
     THROW(EVP_PKEY_CTX_set_signature_md(ctx, md) > 0);
-    if (p_rsa->padding == RSA_PKCS1_PSS_PADDING) {
+    if (sign_pad == RSA_PKCS1_PSS_PADDING) {
         THROW(EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) > 0);
         THROW(EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, RSA_PSS_SALTLEN_DIGEST) > 0);
     }
@@ -1207,7 +1207,7 @@ PPCODE:
     THROW(md != NULL);
 
     THROW(EVP_PKEY_CTX_set_signature_md(ctx, md) > 0);
-    if (p_rsa->padding == RSA_PKCS1_PSS_PADDING) {
+    if (verify_pad == RSA_PKCS1_PSS_PADDING) {
         THROW(EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) > 0);
         THROW(EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, RSA_PSS_SALTLEN_DIGEST) > 0);
     }
