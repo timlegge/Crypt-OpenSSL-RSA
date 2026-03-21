@@ -788,16 +788,10 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         if (error)
         {
             EVP_PKEY_free(rsa);
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-            EVP_PKEY_CTX_free(pctx);
-#endif
             CHECK_OPEN_SSL(0);
         }
     }
     end:
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    EVP_PKEY_CTX_free(pctx);
-#endif
 
   OUTPUT:
     RETVAL
