@@ -52,6 +52,15 @@ sub get_key_parameters {
 
 *get_public_key_pkcs1_string = \&get_public_key_string;
 
+unless ( defined &use_sslv23_padding ) {
+    *use_sslv23_padding = sub {
+        croak(  "use_sslv23_padding is not available: "
+              . "SSLv23 padding was removed in OpenSSL 3.x. "
+              . "Use use_pkcs1_oaep_padding() for encryption "
+              . "or use_pkcs1_pss_padding() for signatures instead." );
+    };
+}
+
 1;
 
 __END__
@@ -321,7 +330,10 @@ fatal error.  Call C<use_pkcs1_oaep_padding> for encryption operations.
 Use C<PKCS #1 v1.5> padding with an SSL-specific modification that
 denotes that the server is SSL3 capable.
 
-Not available since OpenSSL 3.
+B<Not available on OpenSSL 3.x or later.>  Calling this method will
+croak with a descriptive error message suggesting alternatives.
+Use C<use_pkcs1_oaep_padding()> for encryption or
+C<use_pkcs1_pss_padding()> for signatures.
 
 =back
 
