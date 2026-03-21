@@ -600,7 +600,7 @@ _new_private_key_der(proto, key_string_SV)
     }
     OSSL_DECODER_CTX_free(dctx);
 #else
-    pkey = d2i_PrivateKey_bio(bio, NULL);
+    pkey = d2i_RSAPrivateKey_bio(bio, NULL);
 #endif
     BIO_free(bio);
     CHECK_OPEN_SSL(pkey);
