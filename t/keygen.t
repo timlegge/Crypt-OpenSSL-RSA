@@ -128,10 +128,15 @@ plan tests => 24;
     my $sig256 = $rsa->sign($msg);
     ok($rsa->verify($msg, $sig256), "SHA256 sign/verify after mode set");
 
-    $rsa->use_sha1_hash();
-    my $sig1 = $rsa->sign($msg);
-    ok($rsa->verify($msg, $sig1), "SHA1 sign/verify after switching from SHA256");
+    # SHA1 signing may be disabled on FIPS-like systems (e.g. almalinux:9)
+    SKIP: {
+        $rsa->use_sha1_hash();
+        my $sig1 = eval { $rsa->sign($msg) };
+        skip "SHA1 signing not available: $@", 2 if $@;
+        ok($rsa->verify($msg, $sig1), "SHA1 sign/verify after switching from SHA256");
 
-    # SHA256 signature should NOT verify under SHA1
-    ok(!$rsa->verify($msg, $sig256), "SHA256 signature fails under SHA1 mode");
+        # SHA256 signature should NOT verify under SHA1
+        my $result = eval { $rsa->verify($msg, $sig256) };
+        ok(!$result, "SHA256 signature fails under SHA1 mode");
+    }
 }
