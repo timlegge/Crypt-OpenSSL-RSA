@@ -39,6 +39,63 @@ jobs:
         run: perl -I$(pwd) Makefile.PL
       - run: make && prove -wbvm t/*.t
 
+#
+# Valgrind memory leak detection on OpenSSL 3.x
+#
+
+  valgrind:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    needs: [ubuntu]
+    name: "Valgrind (debian:bookworm)"
+    container: debian:bookworm
+
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y openssl perl make gcc libssl-dev sudo curl valgrind
+      - name: uses install-with-cpm
+        uses: perl-actions/install-with-cpm@v1
+        with:
+          cpanfile: "cpanfile"
+      - name: Build
+        run: |
+          perl -I$(pwd) Makefile.PL
+          make
+      - name: Run tests under Valgrind
+        run: |
+          rc=0
+          for t in t/*.t; do
+            echo "=== valgrind: $t ==="
+            valgrind \
+              --leak-check=full \
+              --show-leak-kinds=definite \
+              --num-callers=20 \
+              --log-file=valgrind.log \
+              perl -Iblib/lib -Iblib/arch "$t"
+            # Only fail if RSA.so appears in a "definitely lost" stack trace.
+            # This filters out Perl-internal leaks (known false positives).
+            if perl -0777 -e '
+              my $log = do { local $/; <STDIN> };
+              my $found = 0;
+              for my $block (split /\n\n/, $log) {
+                if ($block =~ /definitely lost/ && $block =~ /RSA\.so/) {
+                  print STDERR "LEAK from RSA.xs:\n$block\n\n";
+                  $found = 1;
+                }
+              }
+              exit $found;
+            ' < valgrind.log; then
+              echo "  -> clean"
+            else
+              echo "Memory leak from RSA.xs in $t!"
+              rc=1
+            fi
+          done
+          exit $rc
+
   openssl-matrix:
     timeout-minutes: 5
     env:
