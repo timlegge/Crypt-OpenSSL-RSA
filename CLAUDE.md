@@ -1,0 +1,117 @@
+# Crypt::OpenSSL::RSA
+
+Perl XS module providing RSA encryption, decryption, signing, and verification via OpenSSL. Wraps OpenSSL's RSA/EVP_PKEY API with support for OpenSSL 1.0.x through 3.x and LibreSSL.
+
+## Build & Test
+
+```bash
+# Install build dependencies
+cpanm --notest Crypt::OpenSSL::Guess Crypt::OpenSSL::Random
+
+# Build
+perl Makefile.PL && make
+
+# Test
+make test
+# or directly:
+prove -lv t/
+```
+
+**Runtime deps:** `Crypt::OpenSSL::Random`, `Crypt::OpenSSL::Bignum` (recommended)
+**Build deps:** `Crypt::OpenSSL::Guess` (≥0.11), `ExtUtils::MakeMaker` (≥6.48)
+**Min Perl:** 5.006 (CI tests 5.10+)
+
+## Architecture
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `RSA.xs` | Core C/XS implementation — all OpenSSL calls live here |
+| `RSA.pm` | Perl module — XSLoader, POD docs, version |
+| `Makefile.PL` | Build config via ExtUtils::MakeMaker + Crypt::OpenSSL::Guess |
+| `typemap` | XS type mappings (rsaData* → O_OBJECT, BIGNUM* → T_PTR) |
+| `hints/MSWin32.pl` | Windows-specific build flags |
+
+### RSA.xs Structure
+
+The XS file has 3 code paths controlled by preprocessor conditionals:
+
+- **Pre-0.9.8** (`< 0x00908000`): Legacy direct RSA struct access
+- **0.9.8–2.x** (`>= 0x00908000 && < 0x30000000`): RSA_get0_* getter API
+- **3.x+** (`>= 0x30000000`): EVP_PKEY abstraction, OSSL_PARAM builders, EVP_PKEY_CTX
+
+Compatibility macros (lines 30–54) unify the API: on pre-3.x, `EVP_PKEY` is `#define`d to `RSA`, `EVP_PKEY_free` to `RSA_free`, etc.
+
+**Core data structure:**
+```c
+typedef struct {
+    EVP_PKEY* rsa;   // EVP_PKEY (3.x) or RSA* (pre-3.x)
+    int padding;     // Current padding mode
+    int hashMode;    // Current hash algorithm (NID_*)
+} rsaData;
+```
+
+**Key helper functions:**
+- `croakSsl()` — Drains full OpenSSL error queue, reports last (most specific) error
+- `rsa_crypt()` — Unified encrypt/decrypt/private_encrypt/public_decrypt with `is_encrypt` flag
+- `get_message_digest()` — Compute hash; uses `EVP_Q_digest()` on 3.x, direct `SHA*()` on pre-3.x
+- `make_rsa_obj()` — Create blessed Perl object (default: OAEP padding, SHA-256 hash)
+- `_load_rsa_key()` — PEM key loading via BIO
+
+### Test Suite
+
+16 test files in `t/`:
+
+| Test | Covers |
+|------|--------|
+| `rsa.t` | Core operations, key generation, sizes |
+| `sign_verify.t` | Signatures across hash algorithms |
+| `crypto.t` | Encryption/decryption boundaries |
+| `padding.t` | PKCS#1 padding modes (OAEP, PSS, v1.5) |
+| `private_crypt.t` | private_encrypt / public_decrypt |
+| `format.t` | Key format conversions (PKCS#1, X.509) |
+| `bignum.t` | Crypt::OpenSSL::Bignum integration |
+| `key_lifecycle.t` | Key generation and parameter derivation |
+| `check_param.t` | Key validation |
+| `error_queue.t` | Error handling |
+| `sig_die.t` | Signal handling |
+| `z_*.t` | Quality checks (POD, META, kwalitee) |
+
+Tests use dynamic plans (hash algorithm availability varies by OpenSSL build). `t/fakelib/` provides a mock `Crypt::OpenSSL::Bignum` for testing without the real module.
+
+## Conventions & Gotchas
+
+### Memory Management
+
+- **OpenSSL 3.x getters allocate**: `EVP_PKEY_get_bn_param()` returns new BIGNUMs — caller must free. Pre-3.x `RSA_get0_*` returns internal pointers — do NOT free.
+- **`set1` vs `set0`**: `set1` copies (caller frees original), `set0` takes ownership (caller must NOT free).
+- **`BN_clear_free()`** for sensitive data (private exponents d, p, q).
+- **Resource cleanup pattern**: Use `THROW` macro + `goto err` label for centralized cleanup on error paths. Never put cleanup code after `XSRETURN_*` (they are longjmps — code after them is dead).
+
+### Error Handling
+
+- `CHECK_OPEN_SSL(condition)` macro calls `croakSsl()` on failure — incompatible with resource cleanup (use `THROW`/`goto err` instead).
+- `ERR_get_error()` returns oldest error first (FIFO) — must loop to drain queue and use last error.
+
+### Padding & Crypto
+
+- `rsa_crypt()` uses `is_encrypt` flag to distinguish encryption (OAEP-compatible) from raw signing (PKCS#1 v1.5).
+- PKCS#1 v1.5 is blocked for encryption (Marvin attack vulnerability) but allowed for signatures.
+- `EVP_PKEY_sign` does NOT accept OAEP; `EVP_PKEY_encrypt` does NOT accept PKCS#1 v1.5 — they are fundamentally different operations.
+
+### XS Specifics
+
+- Variables used at labels across `#if` blocks need `PREINIT:` scope.
+- Static buffers in XS functions are thread-unsafe (shared across Perl ithreads).
+- `OSSL_LIB_CTX_new()` is expensive — use NULL (default context) unless custom providers needed.
+
+## CI
+
+GitHub Actions workflow in `.github/workflows/testsuite.yml`:
+
+- **OpenSSL matrix**: Debian bullseye (1.1.1), bookworm (3.0.x), trixie (3.4.x), AlmaLinux 9
+- **Perl versions**: 5.10+ (dynamic matrix via perl-actions/perl-versions)
+- **Valgrind**: Memory leak detection on Debian bookworm, filters for RSA.xs-specific leaks
+- **Platforms**: Linux, Windows (Strawberry Perl), macOS (system LibreSSL + Homebrew OpenSSL 3.x)
+- All jobs have 5-minute timeout
