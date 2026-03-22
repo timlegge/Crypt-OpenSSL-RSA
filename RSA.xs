@@ -881,12 +881,12 @@ PPCODE:
        them via BN_dup(), so we must free the originals here. */
     BN_free(n);
     BN_free(e);
-    BN_free(d);
-    BN_free(p);
-    BN_free(q);
-    BN_free(dmp1);
-    BN_free(dmq1);
-    BN_free(iqmp);
+    BN_clear_free(d);
+    BN_clear_free(p);
+    BN_clear_free(q);
+    BN_clear_free(dmp1);
+    BN_clear_free(dmq1);
+    BN_clear_free(iqmp);
 #endif
 }
 
