@@ -8,7 +8,7 @@ use Crypt::OpenSSL::Guess qw(openssl_version);
 my ($major, $minor, $patch) = openssl_version;
 
 BEGIN {
-    plan tests => 123 + ( UNIVERSAL::can( "Crypt::OpenSSL::RSA", "use_sha512_hash" ) ? 4 * 5 : 0 );
+    plan tests => 124 + ( UNIVERSAL::can( "Crypt::OpenSSL::RSA", "use_sha512_hash" ) ? 4 * 5 : 0 );
 }
 
 sub _Test_Encrypt_And_Decrypt {
@@ -84,12 +84,13 @@ my $rsa_pub = Crypt::OpenSSL::RSA->new_public_key($public_key_string);
 $plaintext .= $plaintext x 5;
 # sslv23 is unsupported on OpenSSL 3.x
 SKIP: {
-    skip "OpenSSL version less than 3.0 supports sslv23", 1
+    skip "OpenSSL version less than 3.0 supports sslv23", 2
         if $major lt '3.0';
     eval {
         $rsa->use_sslv23_padding;
     };
-    ok($@, "Padding method sslv23 unsupported on OpenSSL 3.x");
+    ok($@, "use_sslv23_padding croaks on OpenSSL 3.x");
+    like($@, qr/SSLv23 padding was removed/, "error message explains deprecation");
 }
 
 # pkcs1 is supported (for signatures, not encryption)
