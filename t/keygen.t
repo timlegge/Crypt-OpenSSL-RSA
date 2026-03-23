@@ -16,16 +16,11 @@ my $HAS_BIGNUM = eval { require Crypt::OpenSSL::Bignum; 1 } ? 1 : 0;
 
 plan tests => 24;
 
-# Use 1024-bit keys throughout: these tests exercise the exponent
-# parameter and key-object behaviour, not cryptographic strength.
-# Larger keys with non-standard exponents (e.g. e=3) can take minutes
-# on older OpenSSL (1.1.1) and trip the CI timeout.
-
 # --- Default exponent (65537) explicitly passed ---
 {
-    my $rsa = Crypt::OpenSSL::RSA->generate_key(1024, 65537);
+    my $rsa = Crypt::OpenSSL::RSA->generate_key(2048, 65537);
     ok($rsa, "generate_key with explicit default exponent 65537");
-    is($rsa->size(), 128, "key size is 128 bytes (1024 bits)");
+    is($rsa->size(), 256, "key size is 256 bytes (2048 bits)");
     ok($rsa->is_private(), "generated key is private");
     ok($rsa->check_key(), "key passes check_key");
 
@@ -38,7 +33,7 @@ plan tests => 24;
 
 # --- Small valid exponent: 3 ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(1024, 3) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 3) };
     SKIP: {
         skip "OpenSSL rejected exponent 3: $@", 5 if $@;
         ok($rsa, "generate_key with exponent 3");
@@ -61,7 +56,7 @@ plan tests => 24;
 
 # --- Valid exponent: 17 ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(1024, 17) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 17) };
     SKIP: {
         skip "OpenSSL rejected exponent 17: $@", 4 if $@;
         ok($rsa, "generate_key with exponent 17");
@@ -83,7 +78,7 @@ plan tests => 24;
 
 # --- Valid exponent: 257 ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(1024, 257) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 257) };
     SKIP: {
         skip "OpenSSL rejected exponent 257: $@", 2 if $@;
         ok($rsa, "generate_key with exponent 257");
@@ -93,13 +88,13 @@ plan tests => 24;
 
 # --- Invalid exponent: even number (2) ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(1024, 2) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 2) };
     ok(!$rsa || $@, "exponent 2 (even) is rejected");
 }
 
 # --- Invalid exponent: 1 ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(1024, 1) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 1) };
     ok(!$rsa || $@, "exponent 1 is rejected");
 }
 
