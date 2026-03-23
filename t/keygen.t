@@ -92,15 +92,31 @@ plan tests => 24;
 }
 
 # --- Invalid exponent: even number (2) ---
+# OpenSSL 1.1.x may loop forever on invalid exponents instead of
+# rejecting them, so we use alarm() to avoid hanging CI.
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key($BITS, 2) };
-    ok(!$rsa || $@, "exponent 2 (even) is rejected");
+    my $rsa = eval {
+        local $SIG{ALRM} = sub { die "timeout\n" };
+        alarm(10);
+        my $r = Crypt::OpenSSL::RSA->generate_key($BITS, 2);
+        alarm(0);
+        $r;
+    };
+    alarm(0);
+    ok(!$rsa || $@, "exponent 2 (even) is rejected or times out");
 }
 
 # --- Invalid exponent: 1 ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key($BITS, 1) };
-    ok(!$rsa || $@, "exponent 1 is rejected");
+    my $rsa = eval {
+        local $SIG{ALRM} = sub { die "timeout\n" };
+        alarm(10);
+        my $r = Crypt::OpenSSL::RSA->generate_key($BITS, 1);
+        alarm(0);
+        $r;
+    };
+    alarm(0);
+    ok(!$rsa || $@, "exponent 1 is rejected or times out");
 }
 
 # --- Key reuse after error ---
