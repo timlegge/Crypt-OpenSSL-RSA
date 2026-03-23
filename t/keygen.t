@@ -14,13 +14,18 @@ Crypt::OpenSSL::RSA->import_random_seed();
 
 my $HAS_BIGNUM = eval { require Crypt::OpenSSL::Bignum; 1 } ? 1 : 0;
 
+# Use 1024-bit keys throughout — this test validates exponent handling,
+# not key strength, and 2048-bit keygen is too slow on older CI containers.
+my $BITS = 1024;
+my $BYTES = $BITS / 8;
+
 plan tests => 24;
 
 # --- Default exponent (65537) explicitly passed ---
 {
-    my $rsa = Crypt::OpenSSL::RSA->generate_key(2048, 65537);
+    my $rsa = Crypt::OpenSSL::RSA->generate_key($BITS, 65537);
     ok($rsa, "generate_key with explicit default exponent 65537");
-    is($rsa->size(), 256, "key size is 256 bytes (2048 bits)");
+    is($rsa->size(), $BYTES, "key size is $BYTES bytes ($BITS bits)");
     ok($rsa->is_private(), "generated key is private");
     ok($rsa->check_key(), "key passes check_key");
 
@@ -33,7 +38,7 @@ plan tests => 24;
 
 # --- Small valid exponent: 3 ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 3) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key($BITS, 3) };
     SKIP: {
         skip "OpenSSL rejected exponent 3: $@", 5 if $@;
         ok($rsa, "generate_key with exponent 3");
@@ -56,7 +61,7 @@ plan tests => 24;
 
 # --- Valid exponent: 17 ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 17) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key($BITS, 17) };
     SKIP: {
         skip "OpenSSL rejected exponent 17: $@", 4 if $@;
         ok($rsa, "generate_key with exponent 17");
@@ -78,7 +83,7 @@ plan tests => 24;
 
 # --- Valid exponent: 257 ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 257) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key($BITS, 257) };
     SKIP: {
         skip "OpenSSL rejected exponent 257: $@", 2 if $@;
         ok($rsa, "generate_key with exponent 257");
@@ -88,13 +93,13 @@ plan tests => 24;
 
 # --- Invalid exponent: even number (2) ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 2) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key($BITS, 2) };
     ok(!$rsa || $@, "exponent 2 (even) is rejected");
 }
 
 # --- Invalid exponent: 1 ---
 {
-    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(2048, 1) };
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key($BITS, 1) };
     ok(!$rsa || $@, "exponent 1 is rejected");
 }
 
@@ -102,7 +107,7 @@ plan tests => 24;
 # Generate a key, trigger an eval-caught error, then use the key again.
 # Validates the key object isn't corrupted by a caught failure.
 {
-    my $rsa = Crypt::OpenSSL::RSA->generate_key(2048);
+    my $rsa = Crypt::OpenSSL::RSA->generate_key($BITS);
     $rsa->use_pkcs1_oaep_padding();
 
     # Trigger an error: plaintext too long for OAEP
@@ -120,7 +125,7 @@ plan tests => 24;
 # --- Hash mode switching ---
 # Verify that changing hash modes on a key object works correctly.
 {
-    my $rsa = Crypt::OpenSSL::RSA->generate_key(2048);
+    my $rsa = Crypt::OpenSSL::RSA->generate_key($BITS);
     $rsa->use_pkcs1_pss_padding();
     my $msg = "hash switching test";
 
