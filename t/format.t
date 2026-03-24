@@ -6,7 +6,7 @@ use Crypt::OpenSSL::Guess qw(openssl_version);
 
 my ($major, $minor, $patch) = openssl_version();
 
-BEGIN { plan tests => 48 }
+BEGIN { plan tests => 52 }
 
 my $PRIVATE_KEY_STRING = <<EOF;
 -----BEGIN RSA PRIVATE KEY-----
@@ -200,3 +200,22 @@ like($@, qr/unrecognized key format/, "new_public_key croaks on non-PEM input");
 my $priv_for_x509 = Crypt::OpenSSL::RSA->new_private_key($PRIVATE_KEY_STRING);
 ok( $public_key = Crypt::OpenSSL::RSA->new_public_key($priv_for_x509->get_public_key_x509_string()), "load X509 public key from private key" );
 is( $public_key->get_public_key_string(), $PUBLIC_KEY_PKCS1_STRING, "X509 from private key matches PKCS1" );
+
+# --- Non-RSA key rejection ---
+# On OpenSSL 3.x, the generic PEM loaders accept any key type.
+# Verify we reject non-RSA keys with a clear error.
+
+SKIP: {
+    my $ec_pem = `openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 2>/dev/null`;
+    skip "EC key generation not available", 4 unless $ec_pem;
+
+    eval { Crypt::OpenSSL::RSA->new_private_key($ec_pem) };
+    ok($@, "new_private_key rejects EC private key");
+    like($@, qr/not an RSA key/i, "EC private key error message mentions RSA");
+
+    my $ec_pub = `openssl pkey -pubout 2>/dev/null <<< "$ec_pem"`;
+    skip "EC public key export failed", 2 unless $ec_pub;
+    eval { Crypt::OpenSSL::RSA->new_public_key($ec_pub) };
+    ok($@, "new_public_key rejects EC public key");
+    like($@, qr/not an RSA key|unrecognized key format/i, "EC public key gives appropriate error");
+}

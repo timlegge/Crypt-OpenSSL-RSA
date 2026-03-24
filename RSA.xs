@@ -387,6 +387,16 @@ EVP_PKEY*  _load_rsa_key(SV* p_keyStringSv,
     BIO_free(stringBIO);
 
     CHECK_OPEN_SSL(rsa);
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    /* On 3.x, PEM_read_bio_PrivateKey/PEM_read_bio_PUBKEY accept any key
+       type (EC, DSA, etc.).  Pre-3.x used RSA-specific loaders that would
+       reject non-RSA keys at parse time.  Validate here to preserve that
+       behavior and give a clear error instead of confusing failures later. */
+    if (EVP_PKEY_get_base_id(rsa) != EVP_PKEY_RSA) {
+        EVP_PKEY_free(rsa);
+        croak("The key loaded is not an RSA key");
+    }
+#endif
     return rsa;
 }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
