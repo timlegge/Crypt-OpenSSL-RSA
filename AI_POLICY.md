@@ -95,7 +95,7 @@ To be explicit about the limits of AI involvement in this project:
 
 ## Releases
 
-Releases are performed manually by the same long-standing maintainers as always. The release process — including changelog review, version tagging, and publication — involves no automation that is not fully understood and supervised by a human.
+Releases are performed manually by the same long-standing maintainers as always. The release process — including changelog review, version tagging, and publication — uses standard Perl ecosystem tooling (e.g. ExtUtils::MakeMaker, Dist::Zilla, Module::Build) but involves no AI-driven automation. Every release is initiated, supervised, and published by a human maintainer.
 
 AI may assist in drafting changelogs or release notes, but these are always reviewed and edited before publication.
 
