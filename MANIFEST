@@ -17,6 +17,7 @@ t/format.t
 t/key_lifecycle.t
 t/padding.t
 t/private_crypt.t
+t/pss_auto_promote.t
 t/rsa.t
 t/sig_die.t
 t/sign_verify.t

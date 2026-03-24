@@ -614,7 +614,7 @@ _new_key_from_parameters(proto, n, e, d, p, q)
     BIGNUM* dmp1 = NULL;
     BIGNUM* dmq1 = NULL;
     BIGNUM* iqmp = NULL;
-    int error;
+    int error = 0;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     OSSL_PARAM *params = NULL;
     EVP_PKEY_CTX *pctx = NULL;
@@ -628,10 +628,10 @@ _new_key_from_parameters(proto, n, e, d, p, q)
     }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     pctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
-    CHECK_OPEN_SSL(pctx != NULL);
-    CHECK_OPEN_SSL(EVP_PKEY_fromdata_init(pctx) > 0);
+    THROW(pctx != NULL);
+    THROW(EVP_PKEY_fromdata_init(pctx) > 0);
     params_build = OSSL_PARAM_BLD_new();
-    CHECK_OPEN_SSL(params_build)
+    THROW(params_build);
 #else
     CHECK_OPEN_SSL(rsa = RSA_new());
 #endif
@@ -640,8 +640,8 @@ _new_key_from_parameters(proto, n, e, d, p, q)
     rsa->e = e;
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    CHECK_OPEN_SSL(OSSL_PARAM_BLD_push_BN(params_build, OSSL_PKEY_PARAM_RSA_N, n));
-    CHECK_OPEN_SSL(OSSL_PARAM_BLD_push_BN(params_build, OSSL_PKEY_PARAM_RSA_E, e));
+    THROW(OSSL_PARAM_BLD_push_BN(params_build, OSSL_PKEY_PARAM_RSA_N, n));
+    THROW(OSSL_PARAM_BLD_push_BN(params_build, OSSL_PKEY_PARAM_RSA_E, e));
 #endif
     if (p || q)
     {
