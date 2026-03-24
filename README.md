@@ -318,6 +318,10 @@ Copyright (c) 2001-2011 Ian Robertson.  Crypt::OpenSSL::RSA is free
 software; you may redistribute it and/or modify it under the same
 terms as Perl itself.
 
+# AI POLICY
+
+This project uses AI tools to assist development. Humans review and approve every change before it is merged. See [AI\_POLICY.md](AI_POLICY.md) for details.
+
 # SEE ALSO
 
 [perl(1)](http://man.he.net/man1/perl), [Crypt::OpenSSL::Random](https://metacpan.org/pod/Crypt%3A%3AOpenSSL%3A%3ARandom), [Crypt::OpenSSL::Bignum](https://metacpan.org/pod/Crypt%3A%3AOpenSSL%3A%3ABignum),
