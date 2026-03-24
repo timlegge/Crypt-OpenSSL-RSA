@@ -728,6 +728,7 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         BN_clear_free(dmp1);
         BN_clear_free(dmq1);
         BN_clear_free(iqmp);
+        n = e = d = p = q = NULL;
 #endif
         dmp1 = dmq1 = iqmp = NULL;
         BN_CTX_free(ctx);
@@ -769,6 +770,7 @@ _new_key_from_parameters(proto, n, e, d, p, q)
         BN_clear_free(n);
         BN_clear_free(e);
         BN_clear_free(d);
+        n = e = d = NULL;
 #else
         CHECK_OPEN_SSL(RSA_set0_key(rsa, n, e, d));
 #endif
