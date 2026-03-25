@@ -1394,12 +1394,16 @@ sign(p_rsa, text_SV)
     sign_done:
 #else
     CHECK_NEW(signature, EVP_PKEY_get_size(p_rsa->rsa), UNSIGNED_CHAR);
-    CHECK_OPEN_SSL(RSA_sign(p_rsa->hashMode,
-                            digest,
-                            get_digest_length(p_rsa->hashMode),
-                            (unsigned char*) signature,
-                            &signature_length,
-                            p_rsa->rsa));
+    if (!RSA_sign(p_rsa->hashMode,
+                  digest,
+                  get_digest_length(p_rsa->hashMode),
+                  (unsigned char*) signature,
+                  &signature_length,
+                  p_rsa->rsa))
+    {
+        Safefree(signature);
+        croakSsl(__FILE__, __LINE__);
+    }
 #endif
     RETVAL = newSVpvn((const char* )signature, signature_length);
     Safefree(signature);
