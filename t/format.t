@@ -211,9 +211,9 @@ SKIP: {
 
     eval { Crypt::OpenSSL::RSA->new_private_key($ec_pem) };
     ok($@, "new_private_key rejects EC private key");
-    like($@, qr/not an RSA key/i, "EC private key error message mentions RSA");
+    like($@, qr/not an RSA key|expecting an rsa key/i, "EC private key error message mentions RSA");
 
-    my $ec_pub = `openssl pkey -pubout 2>/dev/null <<< "$ec_pem"`;
+    my $ec_pub = `echo "$ec_pem" | openssl pkey -pubout 2>/dev/null`;
     skip "EC public key export failed", 2 unless $ec_pub;
     eval { Crypt::OpenSSL::RSA->new_public_key($ec_pub) };
     ok($@, "new_public_key rejects EC public key");
