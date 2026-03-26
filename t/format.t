@@ -122,9 +122,9 @@ like($@, qr/Unsupported cipher/, "get_private_key_string croaks on unsupported c
 # --- Error: export private key from public-only key ---
 
 my $pub_only = Crypt::OpenSSL::RSA->new_public_key($PUBLIC_KEY_PKCS1_STRING);
-# Behavior varies: OpenSSL 3.x may croak, 1.x/LibreSSL returns a PEM
 eval { $pub_only->get_private_key_string() };
-pass("get_private_key_string on public-only key does not crash");
+like($@, qr/Public keys cannot export private key strings/,
+    "get_private_key_string croaks on public-only key");
 
 # --- Error: wrong passphrase on re-import ---
 
