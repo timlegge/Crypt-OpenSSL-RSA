@@ -293,14 +293,21 @@ SV* extractBioString(BIO* p_stringBio)
 {
     SV* sv;
     char* datap;
-    long datasize = 0;
+    long datasize;
 
-    CHECK_OPEN_SSL(BIO_flush(p_stringBio) == 1);
+    if (BIO_flush(p_stringBio) != 1) {
+        BIO_free(p_stringBio);
+        croakSsl(__FILE__, __LINE__);
+    }
 
     datasize = BIO_get_mem_data(p_stringBio, &datap);
+    if (datasize < 0) {
+        BIO_free(p_stringBio);
+        croakSsl(__FILE__, __LINE__);
+    }
     sv = newSVpv(datap, datasize);
 
-    CHECK_OPEN_SSL(BIO_set_close(p_stringBio, BIO_CLOSE) == 1);
+    BIO_set_close(p_stringBio, BIO_CLOSE);
     BIO_free(p_stringBio);
     return sv;
 }
