@@ -16,6 +16,7 @@ t/fakelib/Crypt/OpenSSL/Bignum.pm
 t/format.t
 t/key_lifecycle.t
 t/padding.t
+t/pkcs1_sign.t
 t/private_crypt.t
 t/pss_auto_promote.t
 t/rsa.t
