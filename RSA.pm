@@ -65,6 +65,8 @@ unless ( defined &use_sslv23_padding ) {
 
 __END__
 
+=for markdown [![testsuite](https://github.com/cpan-authors/Crypt-OpenSSL-RSA/actions/workflows/testsuite.yml/badge.svg)](https://github.com/cpan-authors/Crypt-OpenSSL-RSA/actions/workflows/testsuite.yml)
+
 =head1 NAME
 
 Crypt::OpenSSL::RSA - RSA encoding and decoding, using the openSSL libraries
