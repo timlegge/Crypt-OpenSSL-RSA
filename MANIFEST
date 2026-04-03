@@ -15,6 +15,7 @@ t/error_queue.t
 t/fakelib/Crypt/OpenSSL/Bignum.pm
 t/format.t
 t/key_lifecycle.t
+t/keygen.t
 t/padding.t
 t/private_crypt.t
 t/pss_auto_promote.t
