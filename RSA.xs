@@ -799,9 +799,8 @@ _new_key_from_parameters(proto, n, e, d, p, q)
 #endif
     }
 
-    RETVAL = make_rsa_obj(proto, rsa);
-    if(RETVAL)
-        goto end;
+    THROW(RETVAL = make_rsa_obj(proto, rsa));
+    goto end;
 
     err:
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
