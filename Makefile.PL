@@ -43,7 +43,7 @@ WriteMakefile(
         provides => {
             'Crypt::OpenSSL::RSA' => {
                 file    => 'RSA.pm',
-                version => '0.37',
+                version => MM->parse_version('RSA.pm'),
             },
         },
         recommends => {

@@ -4,7 +4,9 @@
 
 If you discover a security vulnerability in Crypt::OpenSSL::RSA, please report it responsibly.
 
-**Contact:** Todd Rinaldo <toddr@cpan.org>
+**Preferred:** Use [GitHub's private vulnerability reporting](https://github.com/cpan-authors/Crypt-OpenSSL-RSA/security/advisories/new) to submit a report directly on GitHub.
+
+**Alternative:** Email Todd Rinaldo <toddr@cpan.org>
 
 Please include:
 - A description of the vulnerability
