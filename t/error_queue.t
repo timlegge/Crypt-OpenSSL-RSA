@@ -28,5 +28,5 @@ like($second_error, qr/OpenSSL error: \S/, "second error has a meaningful OpenSS
 # Trigger yet another failure after two eval-caught ones — error queue should be clean
 eval { $rsa->encrypt("A" x 500) };
 my $third_error = $@;
-like($third_error, qr/too large|data greater|asym cipher failure/i,
+like($third_error, qr/too large|data greater|asym cipher failure|plaintext too long/i,
     "third error reports actual problem (data too large), not stale from earlier failures");
