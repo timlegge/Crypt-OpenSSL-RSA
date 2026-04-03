@@ -11,7 +11,7 @@ my $HAS_BIGNUM = eval { require Crypt::OpenSSL::Bignum; 1 } ? 1 : 0;
 
 # skip() reports skipped tests which count toward total, so plan must
 # always include them regardless of whether Bignum is available.
-plan tests => 9 + 14 + 20 + 2;
+plan tests => 9 + 14 + 20 + 2 + 4;
 
 # --- Cross-key operations ---
 # Sign with key1, verify with key2 — should return false, not croak.
@@ -206,3 +206,21 @@ like( $@, qr/modulus and public key must be provided/,
 eval { Crypt::OpenSSL::RSA->_new_key_from_parameters(0, 0, 0, 0, 0) };
 like( $@, qr/modulus and public key must be provided/,
     "croak when n=0 and e=0 (missing required params)" );
+
+# --- Invalid exponent rejection (prevents RSA_generate_key_ex hang on OpenSSL 1.1.x) ---
+
+eval { Crypt::OpenSSL::RSA->generate_key(2048, 2) };
+like( $@, qr/RSA exponent must be odd and >= 3/,
+    "generate_key croaks on even exponent (2)" );
+
+eval { Crypt::OpenSSL::RSA->generate_key(2048, 1) };
+like( $@, qr/RSA exponent must be odd and >= 3/,
+    "generate_key croaks on exponent 1" );
+
+eval { Crypt::OpenSSL::RSA->generate_key(2048, 0) };
+like( $@, qr/RSA exponent must be odd and >= 3/,
+    "generate_key croaks on exponent 0" );
+
+eval { Crypt::OpenSSL::RSA->generate_key(2048, 100) };
+like( $@, qr/RSA exponent must be odd and >= 3/,
+    "generate_key croaks on even exponent (100)" );
