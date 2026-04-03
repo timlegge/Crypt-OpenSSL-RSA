@@ -915,32 +915,18 @@ PPCODE:
         BN_free(n);
         croakSsl(__FILE__, __LINE__);
     }
-    /* Private components are absent for public keys (return 0, leave ptr NULL).
-       Only croak if the call fails while the key is marked private. */
-    if (!EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_D, &d) && _is_private(p_rsa)) {
-        BN_free(n); BN_free(e);
-        croakSsl(__FILE__, __LINE__);
-    }
-    if (!EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_FACTOR1, &p) && _is_private(p_rsa)) {
-        BN_free(n); BN_free(e); BN_clear_free(d);
-        croakSsl(__FILE__, __LINE__);
-    }
-    if (!EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_FACTOR2, &q) && _is_private(p_rsa)) {
-        BN_free(n); BN_free(e); BN_clear_free(d); BN_clear_free(p);
-        croakSsl(__FILE__, __LINE__);
-    }
-    if (!EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_EXPONENT1, &dmp1) && _is_private(p_rsa)) {
-        BN_free(n); BN_free(e); BN_clear_free(d); BN_clear_free(p); BN_clear_free(q);
-        croakSsl(__FILE__, __LINE__);
-    }
-    if (!EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_EXPONENT2, &dmq1) && _is_private(p_rsa)) {
-        BN_free(n); BN_free(e); BN_clear_free(d); BN_clear_free(p); BN_clear_free(q); BN_clear_free(dmp1);
-        croakSsl(__FILE__, __LINE__);
-    }
-    if (!EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_COEFFICIENT1, &iqmp) && _is_private(p_rsa)) {
-        BN_free(n); BN_free(e); BN_clear_free(d); BN_clear_free(p); BN_clear_free(q); BN_clear_free(dmp1); BN_clear_free(dmq1);
-        croakSsl(__FILE__, __LINE__);
-    }
+    /* Private components are absent for public keys — EVP_PKEY_get_bn_param()
+       returns 0 and may push errors onto the queue, but the pointer stays NULL
+       so cor_bn2sv() will return undef.  This matches the pre-3.x behaviour
+       where RSA_get0_key/factors/crt_params simply set NULL for missing fields. */
+    EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_D, &d);
+    EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_FACTOR1, &p);
+    EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_FACTOR2, &q);
+    EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_EXPONENT1, &dmp1);
+    EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_EXPONENT2, &dmq1);
+    EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_COEFFICIENT1, &iqmp);
+    /* Drain any errors pushed by expected failures on public keys. */
+    ERR_clear_error();
 #else
     RSA_get0_key(rsa, &n, &e, &d);
     RSA_get0_factors(rsa, &p, &q);
