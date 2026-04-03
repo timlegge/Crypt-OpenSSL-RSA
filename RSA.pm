@@ -19,6 +19,9 @@ BEGIN {
 
 sub new_public_key {
     my ( $proto, $p_key_string ) = @_;
+    croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
+        . "or DER-encoded key (binary ASN.1 data)"
+        unless defined $p_key_string && length($p_key_string) > 0;
     if ( $p_key_string =~ /^-----BEGIN RSA PUBLIC KEY-----/ ) {
         return $proto->_new_public_key_pkcs1($p_key_string);
     }
@@ -45,6 +48,9 @@ sub new_public_key {
 
 sub new_private_key {
     my ( $proto, $p_key_string, @rest ) = @_;
+    croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
+        . "or DER-encoded key (binary ASN.1 data)"
+        unless defined $p_key_string && length($p_key_string) > 0;
     if ( $p_key_string =~ /^-----/ ) {
         return $proto->_new_private_key_pem($p_key_string, @rest);
     }
