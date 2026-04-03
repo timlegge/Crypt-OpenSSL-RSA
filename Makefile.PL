@@ -40,6 +40,12 @@ WriteMakefile(
     'dist'  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     'clean' => { FILES    => 'Crypt-OpenSSL-RSA-*' },
     'META_MERGE' => {
+        provides => {
+            'Crypt::OpenSSL::RSA' => {
+                file    => 'RSA.pm',
+                version => MM->parse_version('RSA.pm'),
+            },
+        },
         recommends => {
             'Crypt::OpenSSL::Bignum' => 0,
         },
