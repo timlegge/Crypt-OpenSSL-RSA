@@ -34,7 +34,6 @@ WriteMakefile(
     'OBJECT' => 'RSA.o',
     'LIBS'   => [openssl_lib_paths() . $libs],
     'LDDLFLAGS' => openssl_lib_paths() . ' ' . $Config{lddlflags},
-    'DEFINE' => '',
     'INC' => openssl_inc_paths(),    # e.g., '-I/usr/include/other'
 
     'dist'  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
