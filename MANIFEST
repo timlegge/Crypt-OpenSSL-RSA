@@ -1,3 +1,4 @@
+AI_POLICY.md
 Changes
 hints/MSWin32.pl
 LICENSE
@@ -11,6 +12,7 @@ RSA.xs
 t/bignum.t
 t/check_param.t
 t/crypto.t
+t/error.t
 t/error_queue.t
 t/fakelib/Crypt/OpenSSL/Bignum.pm
 t/format.t
