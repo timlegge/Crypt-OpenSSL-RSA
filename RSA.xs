@@ -582,6 +582,8 @@ generate_key(proto, bitsSV, exponent = 65537)
     int error = 0;
 #endif
   CODE:
+    if (exponent < 3 || (exponent % 2) == 0)
+        croak("RSA exponent must be odd and >= 3 (got %lu)", exponent);
     e = BN_new();
     BN_set_word(e, exponent);
 #if OPENSSL_VERSION_NUMBER < 0x00908000L
