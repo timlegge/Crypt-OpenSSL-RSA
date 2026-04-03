@@ -294,22 +294,23 @@ SV* extractBioString(BIO* p_stringBio)
     SV* sv;
     char* datap;
     long datasize;
+    int error = 0;
 
-    if (BIO_flush(p_stringBio) != 1) {
-        BIO_free(p_stringBio);
-        croakSsl(__FILE__, __LINE__);
-    }
+    THROW(BIO_flush(p_stringBio) == 1);
 
     datasize = BIO_get_mem_data(p_stringBio, &datap);
-    if (datasize < 0) {
-        BIO_free(p_stringBio);
-        croakSsl(__FILE__, __LINE__);
-    }
+    THROW(datasize >= 0);
+
     sv = newSVpv(datap, datasize);
 
     BIO_set_close(p_stringBio, BIO_CLOSE);
     BIO_free(p_stringBio);
     return sv;
+
+    err:
+        BIO_free(p_stringBio);
+        CHECK_OPEN_SSL(0);
+        return NULL; /* unreachable, CHECK_OPEN_SSL croaks */
 }
 
 EVP_PKEY*  _load_rsa_key(SV* p_keyStringSv,
