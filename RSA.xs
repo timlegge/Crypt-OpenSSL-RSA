@@ -299,7 +299,7 @@ SV* extractBioString(BIO* p_stringBio)
     THROW(BIO_flush(p_stringBio) == 1);
 
     datasize = BIO_get_mem_data(p_stringBio, &datap);
-    THROW(datasize >= 0);
+    THROW(datasize > 0);
 
     sv = newSVpv(datap, datasize);
 
