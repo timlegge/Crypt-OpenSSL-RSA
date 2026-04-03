@@ -1096,7 +1096,9 @@ PPCODE:
     EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_EXPONENT1, &dmp1);
     EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_EXPONENT2, &dmq1);
     EVP_PKEY_get_bn_param(rsa, OSSL_PKEY_PARAM_RSA_COEFFICIENT1, &iqmp);
-    /* Drain any errors pushed by expected failures on public keys. */
+    /* Failed calls (e.g. private params on a public key) push errors
+       onto the OpenSSL error queue.  Drain them so they don't leak
+       into the next croakSsl() call from an unrelated operation. */
     ERR_clear_error();
 #else
     RSA_get0_key(rsa, &n, &e, &d);
