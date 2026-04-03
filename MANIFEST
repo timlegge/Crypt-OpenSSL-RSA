@@ -1,5 +1,6 @@
 AI_POLICY.md
 Changes
+CONTRIBUTING.md
 hints/MSWin32.pl
 LICENSE
 Makefile.PL
@@ -9,6 +10,7 @@ README
 README.md
 RSA.pm
 RSA.xs
+SECURITY.md
 t/bignum.t
 t/check_param.t
 t/crypto.t
