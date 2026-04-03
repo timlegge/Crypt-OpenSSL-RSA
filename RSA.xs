@@ -391,7 +391,9 @@ EVP_PKEY*  _load_rsa_key(SV* p_keyStringSv,
     /* On 3.x, PEM_read_bio_PrivateKey/PEM_read_bio_PUBKEY accept any key
        type (EC, DSA, etc.).  Pre-3.x used RSA-specific loaders that would
        reject non-RSA keys at parse time.  Validate here to preserve that
-       behavior and give a clear error instead of confusing failures later. */
+       behavior and give a clear error instead of confusing failures later.
+       Also rejects RSA-PSS keys (EVP_PKEY_RSA_PSS) — this module
+       only supports traditional RSA (EVP_PKEY_RSA). */
     if (EVP_PKEY_get_base_id(rsa) != EVP_PKEY_RSA) {
         EVP_PKEY_free(rsa);
         croak("The key loaded is not an RSA key");

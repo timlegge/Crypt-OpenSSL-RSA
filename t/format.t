@@ -1,12 +1,13 @@
 use strict;
 use Test::More;
+use File::Temp qw(tempfile);
 
 use Crypt::OpenSSL::RSA;
 use Crypt::OpenSSL::Guess qw(openssl_version);
 
 my ($major, $minor, $patch) = openssl_version();
 
-BEGIN { plan tests => 52 }
+BEGIN { plan tests => 56 }
 
 my $PRIVATE_KEY_STRING = <<EOF;
 -----BEGIN RSA PRIVATE KEY-----
@@ -214,10 +215,38 @@ SKIP: {
     ok($@, "new_private_key rejects EC private key");
     like($@, qr/not an RSA key|expecting an rsa key|ASN1/i, "EC private key error message mentions RSA");
 
-    my $ec_pub = `echo "$ec_pem" | openssl pkey -pubout 2>/dev/null`;
+    my ($tmpfh, $tmpfile) = tempfile(UNLINK => 1);
+    print $tmpfh $ec_pem;
+    close $tmpfh;
+    my $ec_pub = `openssl pkey -in $tmpfile -pubout 2>/dev/null`;
     skip "EC public key export failed", 2
         unless ($? >> 8) == 0 && $ec_pub =~ /-----BEGIN PUBLIC KEY-----/;
     eval { Crypt::OpenSSL::RSA->new_public_key($ec_pub) };
     ok($@, "new_public_key rejects EC public key");
     like($@, qr/not an RSA key|unrecognized key format|ASN1/i, "EC public key gives appropriate error");
+}
+
+# --- RSA-PSS key rejection ---
+# EVP_PKEY_get_base_id() returns EVP_PKEY_RSA_PSS for RSA-PSS keys,
+# which is distinct from EVP_PKEY_RSA.  This module only supports
+# traditional RSA, so RSA-PSS keys should also be rejected.
+
+SKIP: {
+    my $rsa_pss_pem = `openssl genpkey -algorithm RSA-PSS -pkeyopt rsa_keygen_bits:2048 2>/dev/null`;
+    skip "RSA-PSS key generation not available", 4
+        unless ($? >> 8) == 0 && $rsa_pss_pem =~ /-----BEGIN PRIVATE KEY-----/;
+
+    eval { Crypt::OpenSSL::RSA->new_private_key($rsa_pss_pem) };
+    ok($@, "new_private_key rejects RSA-PSS private key");
+    like($@, qr/not an RSA key|expecting an rsa key|ASN1/i, "RSA-PSS private key error message mentions RSA");
+
+    my ($tmpfh, $tmpfile) = tempfile(UNLINK => 1);
+    print $tmpfh $rsa_pss_pem;
+    close $tmpfh;
+    my $rsa_pss_pub = `openssl pkey -in $tmpfile -pubout 2>/dev/null`;
+    skip "RSA-PSS public key export failed", 2
+        unless ($? >> 8) == 0 && $rsa_pss_pub =~ /-----BEGIN PUBLIC KEY-----/;
+    eval { Crypt::OpenSSL::RSA->new_public_key($rsa_pss_pub) };
+    ok($@, "new_public_key rejects RSA-PSS public key");
+    like($@, qr/not an RSA key|unrecognized key format|ASN1/i, "RSA-PSS public key gives appropriate error");
 }
