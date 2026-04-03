@@ -213,6 +213,42 @@ EVP_MD *get_md_bynid(int hash_method)
             break;
     }
 }
+
+/* Configure PSS/PKCS1 padding, signature digest, and MGF1 on an already-initialised
+ * EVP_PKEY_CTX.  On success returns 1 and sets *md_out to a freshly-fetched EVP_MD
+ * that the caller must free with EVP_MD_free().  Returns 0 on any OpenSSL error. */
+static int
+setup_pss_sign_ctx(EVP_PKEY_CTX *ctx, int padding, int hash_nid, EVP_MD **md_out)
+{
+    int effective_pad = padding;
+    EVP_MD *md = NULL;
+
+    if (padding != RSA_NO_PADDING && padding != RSA_PKCS1_PADDING)
+        effective_pad = RSA_PKCS1_PSS_PADDING;
+
+    if (EVP_PKEY_CTX_set_rsa_padding(ctx, effective_pad) <= 0)
+        return 0;
+
+    md = get_md_bynid(hash_nid);
+    if (!md)
+        return 0;
+
+    if (EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0) {
+        EVP_MD_free(md);
+        return 0;
+    }
+
+    if (effective_pad == RSA_PKCS1_PSS_PADDING) {
+        if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) <= 0 ||
+            EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, RSA_PSS_SALTLEN_DIGEST) <= 0) {
+            EVP_MD_free(md);
+            return 0;
+        }
+    }
+
+    *md_out = md;
+    return 1;
+}
 #endif
 unsigned char* get_message_digest(SV* text_SV, int hash_method, unsigned char* md)
 {
@@ -1122,7 +1158,6 @@ sign(p_rsa, text_SV)
     EVP_PKEY_CTX *ctx = NULL;
     EVP_MD *md = NULL;
     int error = 0;
-    int sign_pad;
 #endif
   CODE:
 {
@@ -1137,20 +1172,7 @@ sign(p_rsa, text_SV)
     ctx = EVP_PKEY_CTX_new(p_rsa->rsa, NULL /* no engine */);
     THROW(ctx);
     THROW(EVP_PKEY_sign_init(ctx));
-    sign_pad = p_rsa->padding;
-    if (p_rsa->padding != RSA_NO_PADDING && p_rsa->padding != RSA_PKCS1_PADDING) {
-        sign_pad = RSA_PKCS1_PSS_PADDING;
-    }
-    THROW(EVP_PKEY_CTX_set_rsa_padding(ctx, sign_pad) > 0);
-
-    md = get_md_bynid(p_rsa->hashMode);
-    THROW(md != NULL);
-
-    THROW(EVP_PKEY_CTX_set_signature_md(ctx, md) > 0);
-    if (sign_pad == RSA_PKCS1_PSS_PADDING) {
-        THROW(EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) > 0);
-        THROW(EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, RSA_PSS_SALTLEN_DIGEST) > 0);
-    }
+    THROW(setup_pss_sign_ctx(ctx, p_rsa->padding, p_rsa->hashMode, &md));
     THROW(EVP_PKEY_sign(ctx, NULL, &signature_length, digest, get_digest_length(p_rsa->hashMode)) == 1);
 
     Newx(signature, signature_length, UNSIGNED_CHAR);
@@ -1194,7 +1216,6 @@ PREINIT:
     int verify_result;
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     int error = 0;
-    int verify_pad;
     EVP_PKEY_CTX *ctx = NULL;
     EVP_MD *md = NULL;
 #endif
@@ -1216,19 +1237,7 @@ PPCODE:
     ctx = EVP_PKEY_CTX_new(p_rsa->rsa, NULL /* no engine */);
     THROW(ctx);
     THROW(EVP_PKEY_verify_init(ctx) == 1);
-    verify_pad = p_rsa->padding;
-    if (p_rsa->padding != RSA_NO_PADDING && p_rsa->padding != RSA_PKCS1_PADDING) {
-        verify_pad = RSA_PKCS1_PSS_PADDING;
-    }
-    THROW(EVP_PKEY_CTX_set_rsa_padding(ctx, verify_pad) > 0);
-    md = get_md_bynid(p_rsa->hashMode);
-    THROW(md != NULL);
-
-    THROW(EVP_PKEY_CTX_set_signature_md(ctx, md) > 0);
-    if (verify_pad == RSA_PKCS1_PSS_PADDING) {
-        THROW(EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) > 0);
-        THROW(EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, RSA_PSS_SALTLEN_DIGEST) > 0);
-    }
+    THROW(setup_pss_sign_ctx(ctx, p_rsa->padding, p_rsa->hashMode, &md));
 
     verify_result = EVP_PKEY_verify(ctx, sig, sig_length, digest, get_digest_length(p_rsa->hashMode));
     EVP_MD_free(md);
