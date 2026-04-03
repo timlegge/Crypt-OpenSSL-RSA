@@ -14,9 +14,9 @@ Crypt::OpenSSL::RSA->import_random_seed();
 
 my $HAS_BIGNUM = eval { require Crypt::OpenSSL::Bignum; 1 } ? 1 : 0;
 
-# Use 1024-bit keys throughout — this test validates exponent handling,
-# not key strength, and 2048-bit keygen is too slow on older CI containers.
-my $BITS = 1024;
+# Use 2048-bit keys throughout — AlmaLinux 9 and other FIPS-like systems
+# enforce a minimum RSA key size of 2048 bits.
+my $BITS = 2048;
 my $BYTES = $BITS / 8;
 
 plan tests => 24;
