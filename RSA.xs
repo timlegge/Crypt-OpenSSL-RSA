@@ -220,33 +220,18 @@ unsigned char* get_message_digest(SV* text_SV, int hash_method, unsigned char* m
     unsigned char* text;
     text = (unsigned char*) SvPV(text_SV, text_length);
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    /* Delegate NID→name lookup to get_md_bynid() — single source of truth. */
+    {
+        EVP_MD *md_obj = get_md_bynid(hash_method); /* croak()s on unknown NID */
+        unsigned int result_len;
+        int ok = EVP_Digest(text, text_length, md, &result_len, md_obj, NULL);
+        EVP_MD_free(md_obj);
+        return ok ? md : NULL;
+    }
+#else
     switch(hash_method)
     {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-        case NID_md5:
-            return EVP_Q_digest(NULL, "MD5", NULL, text, text_length, md, NULL) ? md : NULL;
-            break;
-        case NID_sha1:
-            return EVP_Q_digest(NULL, "SHA1", NULL, text, text_length, md, NULL) ? md : NULL;
-            break;
-#ifdef SHA512_DIGEST_LENGTH
-        case NID_sha224:
-            return EVP_Q_digest(NULL, "SHA224", NULL, text, text_length, md, NULL) ? md : NULL;
-            break;
-        case NID_sha256:
-            return EVP_Q_digest(NULL, "SHA256", NULL, text, text_length, md, NULL) ? md : NULL;
-            break;
-        case NID_sha384:
-            return EVP_Q_digest(NULL, "SHA384", NULL, text, text_length, md, NULL) ? md : NULL;
-            break;
-        case NID_sha512:
-            return EVP_Q_digest(NULL, "SHA512", NULL, text, text_length, md, NULL) ? md : NULL;
-            break;
-#endif
-        case NID_ripemd160:
-            return EVP_Q_digest(NULL, "RIPEMD160", NULL, text, text_length, md, NULL) ? md : NULL;
-            break;
-#else
         case NID_md5:
             return MD5(text, text_length, md);
             break;
@@ -270,7 +255,6 @@ unsigned char* get_message_digest(SV* text_SV, int hash_method, unsigned char* m
         case NID_ripemd160:
             return RIPEMD160(text, text_length, md);
             break;
-#endif
 #ifdef WHIRLPOOL_DIGEST_LENGTH
         case NID_whirlpool:
             return WHIRLPOOL(text, text_length, md);
@@ -280,6 +264,7 @@ unsigned char* get_message_digest(SV* text_SV, int hash_method, unsigned char* m
             croak("Unknown digest hash mode %u", hash_method);
             break;
     }
+#endif
 }
 
 SV* cor_bn2sv(const BIGNUM* p_bn)
