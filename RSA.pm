@@ -33,12 +33,22 @@ sub new_public_key {
             . "Expected '-----BEGIN RSA PUBLIC KEY-----' (PKCS#1) or "
             . "'-----BEGIN PUBLIC KEY-----' (X.509)";
     }
-    elsif ( length($p_key_string) > 0 && substr($p_key_string, 0, 1) eq "\x30" ) {
+    elsif ( substr($p_key_string, 0, 1) eq "\x30" ) {
         # ASN.1 SEQUENCE tag detected — likely DER-encoded key.
-        # Try X.509 SubjectPublicKeyInfo first (most common), then PKCS#1 RSAPublicKey.
-        my $rsa = eval { $proto->_new_public_key_x509_der($p_key_string) };
-        return $rsa if $rsa;
-        return $proto->_new_public_key_pkcs1_der($p_key_string);
+        # Distinguish X.509 SubjectPublicKeyInfo (contains RSA OID) from PKCS#1 RSAPublicKey.
+        my $hex = unpack("H*", $p_key_string);
+        if ($hex =~ /06092a864886f70d010101/) {
+            # RSA encryption OID (1.2.840.113549.1.1.1) found — X.509 SubjectPublicKeyInfo
+            return $proto->_new_public_key_x509_der($p_key_string);
+        }
+        elsif ($hex =~ /^308[12].*?02/) {
+            # PKCS#1 RSAPublicKey — SEQUENCE containing INTEGER (modulus)
+            return $proto->_new_public_key_pkcs1_der($p_key_string);
+        }
+        else {
+            croak "unrecognized DER key format: could not be recognized "
+                . "as X.509 SubjectPublicKeyInfo or PKCS#1 RSAPublicKey";
+        }
     }
     else {
         croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
@@ -54,7 +64,7 @@ sub new_private_key {
     if ( $p_key_string =~ /^-----/ ) {
         return $proto->_new_private_key_pem($p_key_string, @rest);
     }
-    elsif ( length($p_key_string) > 0 && substr($p_key_string, 0, 1) eq "\x30" ) {
+    elsif ( substr($p_key_string, 0, 1) eq "\x30" ) {
         # ASN.1 SEQUENCE tag detected — likely DER-encoded private key.
         return $proto->_new_private_key_der($p_key_string);
     }

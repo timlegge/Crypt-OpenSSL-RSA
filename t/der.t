@@ -111,7 +111,8 @@ ok( $priv_from_pem = Crypt::OpenSSL::RSA->new_private_key($priv_pem),
 
 # DER-like data that isn't a valid key
 eval { Crypt::OpenSSL::RSA->new_public_key("\x30\x00") };
-ok( $@, "new_public_key croaks on truncated DER data" );
+like( $@, qr/unrecognized DER key format/,
+    "new_public_key croaks on truncated DER data" );
 
 # Completely bogus binary data (not starting with 0x30)
 eval { Crypt::OpenSSL::RSA->new_public_key("\x01\x02\x03\x04") };
