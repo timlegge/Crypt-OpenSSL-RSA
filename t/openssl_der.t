@@ -66,8 +66,8 @@ my $priv_p = get_parameter($priv_output, 'prime1', 'prime2');
 my $priv_q = get_parameter($priv_output, 'prime2', 'exponent1');
 my $priv_dmp1 = get_parameter($priv_output, 'exponent1', 'exponent2');
 my $priv_dmq1 = get_parameter($priv_output, 'exponent2', 'coefficient');
-my $priv_iqmp = get_parameter($priv_output, 'coefficient', '-----BEGIN PRIVATE KEY-----');
-my $priv_key = get_parameter($priv_output, '-----BEGIN PRIVATE KEY-----', '-----END PRIVATE KEY-----');
+my $priv_iqmp = get_parameter($priv_output, 'coefficient', '-----BEGIN .*PRIVATE KEY-----');
+my $priv_key = get_parameter($priv_output, '-----BEGIN .*PRIVATE KEY-----', '-----END .*PRIVATE KEY-----');
 
 # Load the private key from the DER (base64 decoded PEM)
 my $rsa = Crypt::OpenSSL::RSA->new_private_key(decode_base64($priv_key));
