@@ -4,7 +4,6 @@ use Test::More;
 use MIME::Base64    qw/decode_base64/;
 use Digest::SHA     qw/sha1_hex/;
 use File::Temp      qw/ tempfile tempdir /;
-use File::Slurper   qw/read_binary write_binary/;
 
 use Crypt::OpenSSL::RSA;
 use Crypt::OpenSSL::Bignum;
