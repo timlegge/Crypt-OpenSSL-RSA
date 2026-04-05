@@ -35,19 +35,15 @@ sub new_public_key {
     }
     elsif ( substr($p_key_string, 0, 1) eq "\x30" ) {
         # ASN.1 SEQUENCE tag detected — likely DER-encoded key.
-        # Distinguish X.509 SubjectPublicKeyInfo (contains RSA OID) from PKCS#1 RSAPublicKey.
-        my $hex = unpack("H*", $p_key_string);
-        if ($hex =~ /06092a864886f70d010101/) {
-            # RSA encryption OID (1.2.840.113549.1.1.1) found — X.509 SubjectPublicKeyInfo
+        # Search for the RSA OID (1.2.840.113549.1.1.1) in raw binary to distinguish
+        # X.509 SubjectPublicKeyInfo from PKCS#1 RSAPublicKey.
+        if (index($p_key_string, "\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01") >= 0) {
+            # RSA encryption OID found — X.509 SubjectPublicKeyInfo
             return $proto->_new_public_key_x509_der($p_key_string);
         }
-        elsif ($hex =~ /^308[12].*?02/) {
-            # PKCS#1 RSAPublicKey — SEQUENCE containing INTEGER (modulus)
-            return $proto->_new_public_key_pkcs1_der($p_key_string);
-        }
         else {
-            croak "unrecognized DER key format: could not be recognized "
-                . "as X.509 SubjectPublicKeyInfo or PKCS#1 RSAPublicKey";
+            # No OID — assume PKCS#1 RSAPublicKey, let OpenSSL reject invalid data
+            return $proto->_new_public_key_pkcs1_der($p_key_string);
         }
     }
     else {

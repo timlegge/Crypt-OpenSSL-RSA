@@ -2,8 +2,7 @@ use strict;
 use warnings;
 use Test::More;
 use MIME::Base64    qw/decode_base64/;
-use Digest::SHA     qw/sha1_hex/;
-use File::Temp      qw/ tempfile tempdir /;
+use File::Temp      qw/ tempfile /;
 
 use Crypt::OpenSSL::RSA;
 use Crypt::OpenSSL::Bignum;
@@ -17,14 +16,16 @@ BEGIN {
 my ($rsa_fh, $rsa_file) = tempfile(UNLINK => 1);
 
 # Create a new RSA key
-my $openssl = `openssl genrsa -out $rsa_file 2048 > /dev/null 2>&1`;
+`openssl genrsa -out $rsa_file 2048 > /dev/null 2>&1`;
 
 # Get the output as text that includes the private key PEM
 my $priv_output = `openssl rsa -inform PEM -in $rsa_file -text 2>&1`;
 
-# Get the output as text that includes the private key PEM
-my $pub_output = `openssl rsa -inform PEM -in $rsa_file -pubout -text 2>&1`;
+# X.509 SubjectPublicKeyInfo format (BEGIN PUBLIC KEY)
+my $pub_x509_output = `openssl rsa -inform PEM -in $rsa_file -pubout -text 2>&1`;
 
+# PKCS#1 RSAPublicKey format (BEGIN RSA PUBLIC KEY)
+my $pub_pkcs1_output = `openssl rsa -inform PEM -in $rsa_file -RSAPublicKey_out -text 2>&1`;
 
 # Basic grab multi-line data between
 # two tags from openssl -text output
@@ -36,6 +37,7 @@ sub get_parameter {
     # Fieldname may end in ':'
     $text =~ /$start:*\s*(.*?)\s*$end:*/s;
     my $parameter = $1;
+    return undef unless defined $parameter;
     # Remove ':' and white space including newlines
     $parameter =~ s/[:\s]//g;
 
@@ -48,6 +50,17 @@ sub get_parameter {
     return $parameter;
 }
 
+# Extract the base64 PEM body between header/footer lines
+sub extract_pem_body {
+    my ($text, $header_re, $footer_re) = @_;
+    if ($text =~ /($header_re)\s*(.*?)\s*($footer_re)/s) {
+        my $body = $2;
+        $body =~ s/\s//g;
+        return $body;
+    }
+    return undef;
+}
+
 # Compare a bignum to hex data
 sub compare_bignum_to_hex {
     my $bn1 = shift;
@@ -58,6 +71,10 @@ sub compare_bignum_to_hex {
     return $bn2->cmp($bn1);
 }
 
+####################
+# Check private key
+####################
+diag("Check private key");
 # Extract the values from the openssl private key output
 my $priv_n = get_parameter($priv_output, 'modulus', 'publicExponent');
 my $priv_e = get_parameter($priv_output, 'publicExponent', 'privateExponent');
@@ -67,10 +84,11 @@ my $priv_q = get_parameter($priv_output, 'prime2', 'exponent1');
 my $priv_dmp1 = get_parameter($priv_output, 'exponent1', 'exponent2');
 my $priv_dmq1 = get_parameter($priv_output, 'exponent2', 'coefficient');
 my $priv_iqmp = get_parameter($priv_output, 'coefficient', '-----BEGIN .*PRIVATE KEY-----');
-my $priv_key = get_parameter($priv_output, '-----BEGIN .*PRIVATE KEY-----', '-----END .*PRIVATE KEY-----');
+my $priv_pem = extract_pem_body($priv_output,
+    '-----BEGIN .*PRIVATE KEY-----', '-----END .*PRIVATE KEY-----');
 
 # Load the private key from the DER (base64 decoded PEM)
-my $rsa = Crypt::OpenSSL::RSA->new_private_key(decode_base64($priv_key));
+my $rsa = Crypt::OpenSSL::RSA->new_private_key(decode_base64($priv_pem));
 
 # Get the private key parameters
 my ($n, $e, $d, $p, $q, $dmp1, $dmq1, $iqmp) = $rsa->get_key_parameters();
@@ -85,31 +103,57 @@ ok(compare_bignum_to_hex($dmp1, $priv_dmp1) == 0, "Imported DER dmp1 parameter m
 ok(compare_bignum_to_hex($dmq1, $priv_dmq1) == 0, "Imported DER dmq1 parameter matches expected");
 ok(compare_bignum_to_hex($iqmp, $priv_iqmp) == 0, "Imported DER iqmp parameter matches expected");
 
-# Extract the public key values from the openssl public key output
-my $pub_n = get_parameter($pub_output, 'modulus', 'publicExponent');
-my $pub_e = get_parameter($pub_output, 'publicExponent', 'privateExponent');
-my $pub_d = get_parameter($pub_output, 'privateExponent', 'prime1');
-my $pub_p = get_parameter($pub_output, 'prime1', 'prime2');
-my $pub_q = get_parameter($pub_output, 'prime2', 'exponent1');
-my $pub_dmp1 = get_parameter($pub_output, 'exponent1', 'exponent2');
-my $pub_dmq1 = get_parameter($pub_output, 'exponent2', 'coefficient');
-my $pub_iqmp = get_parameter($pub_output, 'coefficient', '-----BEGIN PUBLIC KEY-----');
-my $pub_key = get_parameter($pub_output, '-----BEGIN PUBLIC KEY-----', '-----END PUBLIC KEY-----');
+###################################
+# Check X.509 SubjectPublicKeyInfo
+###################################
+diag("Check X.509 public key (from -pubout)");
+# Extract PEM body — -pubout produces X.509 SubjectPublicKeyInfo (BEGIN PUBLIC KEY)
+my $pub_x509_pem = extract_pem_body($pub_x509_output,
+    '-----BEGIN PUBLIC KEY-----', '-----END PUBLIC KEY-----');
 
 # Load the public key from the DER (base64 decoded PEM)
-my $pub_rsa = Crypt::OpenSSL::RSA->new_public_key(decode_base64($pub_key));
+my $pub_x509_rsa = Crypt::OpenSSL::RSA->new_public_key(decode_base64($pub_x509_pem));
 
-# Get the private key parameters
-my ($p_n, $p_e, $p_d, $p_p, $p_q, $p_dmp1, $p_dmq1, $p_iqmp) = $pub_rsa->get_key_parameters();
+# Get the key parameters
+my ($px_n, $px_e, $px_d, $px_p, $px_q, $px_dmp1, $px_dmq1, $px_iqmp) = $pub_x509_rsa->get_key_parameters();
 
-# Check each public key parameter to the expected values
-ok(compare_bignum_to_hex($p_n, $pub_n) == 0, "Imported public DER n parameter matches expected");
-ok(compare_bignum_to_hex($p_e, $pub_e) == 0, "Imported public DER e parameter matches expected");
-ok(!$p_d, "Imported public DER d parameter undef as expected");
-ok(!$p_p, "Imported public DER p parameter undef as expected");
-ok(!$p_q, "Imported public DER q parameter undef as expected");
-ok(!$p_dmp1, "Imported public DER dmp1 parameter undef as expected");
-ok(!$p_dmq1, "Imported public DER dmq1 parameter undef as expected");
-ok(!$p_iqmp, "Imported public DER iqmp parameter undef as expected");
+# n and e should match the private key's values (same key)
+ok(compare_bignum_to_hex($px_n, $priv_n) == 0, "X.509 public DER n matches private key n");
+ok(compare_bignum_to_hex($px_e, $priv_e) == 0, "X.509 public DER e matches private key e");
+ok(!$px_d, "X.509 public DER d parameter undef as expected");
+ok(!$px_p, "X.509 public DER p parameter undef as expected");
+ok(!$px_q, "X.509 public DER q parameter undef as expected");
+ok(!$px_dmp1, "X.509 public DER dmp1 parameter undef as expected");
+ok(!$px_dmq1, "X.509 public DER dmq1 parameter undef as expected");
+ok(!$px_iqmp, "X.509 public DER iqmp parameter undef as expected");
+
+#############################
+# Check PKCS#1 RSAPublicKey
+#############################
+diag("Check PKCS#1 public key (from -RSAPublicKey_out)");
+# Extract PEM body — -RSAPublicKey_out produces PKCS#1 (BEGIN RSA PUBLIC KEY)
+my $pub_pkcs1_pem = extract_pem_body($pub_pkcs1_output,
+    '-----BEGIN RSA PUBLIC KEY-----', '-----END RSA PUBLIC KEY-----');
+
+SKIP: {
+    skip "openssl does not support -RSAPublicKey_out", 8
+        unless defined $pub_pkcs1_pem && length($pub_pkcs1_pem) > 0;
+
+    # Load the public key from the DER (base64 decoded PEM)
+    my $pub_pkcs1_rsa = Crypt::OpenSSL::RSA->new_public_key(decode_base64($pub_pkcs1_pem));
+
+    # Get the key parameters
+    my ($pn, $pe, $pd, $pp, $pq, $pdmp1, $pdmq1, $piqmp) = $pub_pkcs1_rsa->get_key_parameters();
+
+    # n and e should match the private key's values (same key)
+    ok(compare_bignum_to_hex($pn, $priv_n) == 0, "PKCS#1 public DER n matches private key n");
+    ok(compare_bignum_to_hex($pe, $priv_e) == 0, "PKCS#1 public DER e matches private key e");
+    ok(!$pd, "PKCS#1 public DER d parameter undef as expected");
+    ok(!$pp, "PKCS#1 public DER p parameter undef as expected");
+    ok(!$pq, "PKCS#1 public DER q parameter undef as expected");
+    ok(!$pdmp1, "PKCS#1 public DER dmp1 parameter undef as expected");
+    ok(!$pdmq1, "PKCS#1 public DER dmq1 parameter undef as expected");
+    ok(!$piqmp, "PKCS#1 public DER iqmp parameter undef as expected");
+}
 
 done_testing();
