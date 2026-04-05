@@ -58,6 +58,7 @@ typedef struct
     EVP_PKEY* rsa;
     int padding;
     int hashMode;
+    int is_private_key;  /* cached once at construction; avoids per-call BIGNUM alloc on 3.x */
 } rsaData;
 
 /* Key names for the rsa hash structure */
@@ -100,24 +101,28 @@ void croakSsl(char* p_file, int p_line)
 
 char _is_private(rsaData* p_rsa)
 {
-    char ret = 0;
+    return p_rsa->is_private_key;
+}
+
+static int _detect_private_key(EVP_PKEY* p_rsa)
+{
 #if OLD_CRUFTY_SSL_VERSION
-    const BIGNUM* d;
-    d = p_rsa->rsa->d;
-    ret = (d != NULL);
+    return (p_rsa->d != NULL);
 #else
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     BIGNUM* d = NULL;
-    EVP_PKEY_get_bn_param(p_rsa->rsa, OSSL_PKEY_PARAM_RSA_D, &d);
-    ret = (d != NULL);
-    BN_clear_free(d);
+    EVP_PKEY_get_bn_param(p_rsa, OSSL_PKEY_PARAM_RSA_D, &d);
+    if (d) {
+        BN_clear_free(d);
+        return 1;
+    }
+    return 0;
 #else
     const BIGNUM* d = NULL;
-    RSA_get0_key(p_rsa->rsa, NULL, NULL, &d);
-    ret = (d != NULL);
+    RSA_get0_key(p_rsa, NULL, NULL, &d);
+    return (d != NULL);
 #endif
 #endif
-    return ret;
 }
 
 SV* make_rsa_obj(SV* p_proto, EVP_PKEY* p_rsa)
@@ -132,6 +137,7 @@ SV* make_rsa_obj(SV* p_proto, EVP_PKEY* p_rsa)
     rsa->hashMode = NID_sha1;
 #endif
     rsa->padding = RSA_PKCS1_OAEP_PADDING;
+    rsa->is_private_key = _detect_private_key(p_rsa);
     return sv_bless(
         newRV_noinc(newSViv((IV) rsa)),
         (SvROK(p_proto) ? SvSTASH(SvRV(p_proto)) : gv_stashsv(p_proto, 1)));
