@@ -1,12 +1,13 @@
 use strict;
 use Test::More;
+use File::Temp qw(tempfile);
 
 use Crypt::OpenSSL::RSA;
 use Crypt::OpenSSL::Guess qw(openssl_version);
 
 my ($major, $minor, $patch) = openssl_version();
 
-BEGIN { plan tests => 48 }
+BEGIN { plan tests => 56 }
 
 my $PRIVATE_KEY_STRING = <<EOF;
 -----BEGIN RSA PRIVATE KEY-----
@@ -200,3 +201,58 @@ like($@, qr/unrecognized key format/, "new_public_key croaks on non-PEM input");
 my $priv_for_x509 = Crypt::OpenSSL::RSA->new_private_key($PRIVATE_KEY_STRING);
 ok( $public_key = Crypt::OpenSSL::RSA->new_public_key($priv_for_x509->get_public_key_x509_string()), "load X509 public key from private key" );
 is( $public_key->get_public_key_string(), $PUBLIC_KEY_PKCS1_STRING, "X509 from private key matches PKCS1" );
+
+# --- Non-RSA key rejection ---
+# On OpenSSL 3.x, the generic PEM loaders accept any key type.
+# Verify we reject non-RSA keys with a clear error.
+
+SKIP: {
+    my $ec_pem = `openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 2>/dev/null`;
+    skip "EC key generation not available", 4
+        unless ($? >> 8) == 0 && $ec_pem =~ /-----BEGIN PRIVATE KEY-----/;
+
+    eval { Crypt::OpenSSL::RSA->new_private_key($ec_pem) };
+    ok($@, "new_private_key rejects EC private key");
+    like($@, qr/not an RSA key|expecting an rsa key|ASN1/i, "EC private key error message mentions RSA");
+
+    my ($tmpfh, $tmpfile) = tempfile(UNLINK => 1);
+    print $tmpfh $ec_pem;
+    close $tmpfh;
+    my $ec_pub = `openssl pkey -in $tmpfile -pubout 2>/dev/null`;
+    skip "EC public key export failed", 2
+        unless ($? >> 8) == 0 && $ec_pub =~ /-----BEGIN PUBLIC KEY-----/;
+    eval { Crypt::OpenSSL::RSA->new_public_key($ec_pub) };
+    ok($@, "new_public_key rejects EC public key");
+    like($@, qr/not an RSA key|unrecognized key format|ASN1/i, "EC public key gives appropriate error");
+}
+
+# --- RSA-PSS key rejection ---
+# EVP_PKEY_get_base_id() returns EVP_PKEY_RSA_PSS for RSA-PSS keys,
+# which is distinct from EVP_PKEY_RSA.  This module only supports
+# traditional RSA, so RSA-PSS keys should also be rejected.
+
+SKIP: {
+    my $rsa_pss_pem = `openssl genpkey -algorithm RSA-PSS -pkeyopt rsa_keygen_bits:2048 2>/dev/null`;
+    skip "RSA-PSS key generation not available", 4
+        unless ($? >> 8) == 0 && $rsa_pss_pem =~ /-----BEGIN PRIVATE KEY-----/;
+
+    # On pre-3.x OpenSSL, RSA-PSS keys are loaded via RSA-specific PEM
+    # readers which accept them (they are structurally RSA).  The
+    # EVP_PKEY_get_base_id() rejection only exists on OpenSSL 3.x+.
+    eval { Crypt::OpenSSL::RSA->new_private_key($rsa_pss_pem) };
+    skip "RSA-PSS rejection not supported on this OpenSSL version (pre-3.x)", 4
+        unless $@;
+
+    ok(1, "new_private_key rejects RSA-PSS private key");
+    like($@, qr/not an RSA key|expecting an rsa key|ASN1/i, "RSA-PSS private key error message mentions RSA");
+
+    my ($tmpfh, $tmpfile) = tempfile(UNLINK => 1);
+    print $tmpfh $rsa_pss_pem;
+    close $tmpfh;
+    my $rsa_pss_pub = `openssl pkey -in $tmpfile -pubout 2>/dev/null`;
+    skip "RSA-PSS public key export failed", 2
+        unless ($? >> 8) == 0 && $rsa_pss_pub =~ /-----BEGIN PUBLIC KEY-----/;
+    eval { Crypt::OpenSSL::RSA->new_public_key($rsa_pss_pub) };
+    ok($@, "new_public_key rejects RSA-PSS public key");
+    like($@, qr/not an RSA key|unrecognized key format|ASN1/i, "RSA-PSS public key gives appropriate error");
+}
