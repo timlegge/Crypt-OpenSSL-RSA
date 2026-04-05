@@ -18,6 +18,7 @@ t/error.t
 t/error_queue.t
 t/fakelib/Crypt/OpenSSL/Bignum.pm
 t/format.t
+t/get_key_parameters.t
 t/key_lifecycle.t
 t/keygen.t
 t/padding.t
