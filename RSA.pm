@@ -19,14 +19,54 @@ BEGIN {
 
 sub new_public_key {
     my ( $proto, $p_key_string ) = @_;
+    croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
+        . "or DER-encoded key (binary ASN.1 data)"
+        unless defined $p_key_string && length($p_key_string) > 0;
     if ( $p_key_string =~ /^-----BEGIN RSA PUBLIC KEY-----/ ) {
         return $proto->_new_public_key_pkcs1($p_key_string);
     }
     elsif ( $p_key_string =~ /^-----BEGIN PUBLIC KEY-----/ ) {
         return $proto->_new_public_key_x509($p_key_string);
     }
+    elsif ( $p_key_string =~ /^-----/ ) {
+        croak "unrecognized key format: PEM header not recognized as RSA public key. "
+            . "Expected '-----BEGIN RSA PUBLIC KEY-----' (PKCS#1) or "
+            . "'-----BEGIN PUBLIC KEY-----' (X.509)";
+    }
+    elsif ( substr($p_key_string, 0, 1) eq "\x30" ) {
+        # ASN.1 SEQUENCE tag detected — likely DER-encoded key.
+        # Search for the RSA OID (1.2.840.113549.1.1.1) in raw binary to distinguish
+        # X.509 SubjectPublicKeyInfo from PKCS#1 RSAPublicKey.
+        if (index($p_key_string, "\x06\x09\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01") >= 0) {
+            # RSA encryption OID found — X.509 SubjectPublicKeyInfo
+            return $proto->_new_public_key_x509_der($p_key_string);
+        }
+        else {
+            # No OID — assume PKCS#1 RSAPublicKey, let OpenSSL reject invalid data
+            return $proto->_new_public_key_pkcs1_der($p_key_string);
+        }
+    }
     else {
-        croak "unrecognized key format";
+        croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
+            . "or DER-encoded key (binary ASN.1 data)";
+    }
+}
+
+sub new_private_key {
+    my ( $proto, $p_key_string, @rest ) = @_;
+    croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
+        . "or DER-encoded key (binary ASN.1 data)"
+        unless defined $p_key_string && length($p_key_string) > 0;
+    if ( $p_key_string =~ /^-----/ ) {
+        return $proto->_new_private_key_pem($p_key_string, @rest);
+    }
+    elsif ( substr($p_key_string, 0, 1) eq "\x30" ) {
+        # ASN.1 SEQUENCE tag detected — likely DER-encoded private key.
+        return $proto->_new_private_key_der($p_key_string);
+    }
+    else {
+        croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
+            . "or DER-encoded key (binary ASN.1 data)";
     }
 }
 
@@ -125,9 +165,15 @@ this (never documented) behavior is no longer the case.
 =item new_public_key
 
 Create a new C<Crypt::OpenSSL::RSA> object by loading a public key in
-from a string containing Base64/DER-encoding of either the PKCS1 or
-X.509 representation of the key.  The string should include the
-C<-----BEGIN...-----> and C<-----END...-----> lines.
+from a string containing either PEM or DER encoding of the PKCS#1 or
+X.509 representation of the key.
+
+For PEM keys, the string should include the C<-----BEGIN...-----> and
+C<-----END...-----> lines.  Both C<BEGIN RSA PUBLIC KEY> (PKCS#1) and
+C<BEGIN PUBLIC KEY> (X.509/SubjectPublicKeyInfo) formats are supported.
+
+DER-encoded keys (raw binary ASN.1) are also accepted and the format
+(PKCS#1 vs X.509) is auto-detected.
 
 The padding is set to PKCS1_OAEP, but can be changed with the
 C<use_xxx_padding> methods.
@@ -138,18 +184,23 @@ C<use_pkcs1_pss_padding> or C<use_pkcs1_padding> prior to signing operations.
 =item new_private_key
 
 Create a new C<Crypt::OpenSSL::RSA> object by loading a private key in
-from an string containing the Base64/DER encoding of the PKCS1
-representation of the key.  The string should include the
-C<-----BEGIN...-----> and C<-----END...-----> lines.  The padding is set to
-PKCS1_OAEP, but can be changed with C<use_xxx_padding>.
+from a string containing either PEM or DER encoding of the key.
 
-An optional parameter can be passed for passphase protected private key:
+For PEM keys, the string should include the C<-----BEGIN...-----> and
+C<-----END...-----> lines.  The padding is set to PKCS1_OAEP, but can
+be changed with C<use_xxx_padding>.
+
+DER-encoded keys (raw binary ASN.1) are also accepted.
+
+An optional parameter can be passed for passphrase-protected PEM private
+keys:
 
 =over
 
-=item passphase
+=item passphrase
 
-The passphase which protects the private key.
+The passphrase which protects the private key.  Note: passphrase
+protection is only supported for PEM-encoded keys.
 
 =back
 
