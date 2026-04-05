@@ -2,8 +2,11 @@ use strict;
 use Test::More;
 
 use Crypt::OpenSSL::RSA;
+use Crypt::OpenSSL::Guess qw(openssl_version);
 
-BEGIN { plan tests => 39 }
+my ($major, $minor, $patch) = openssl_version();
+
+BEGIN { plan tests => 48 }
 
 my $PRIVATE_KEY_STRING = <<EOF;
 -----BEGIN RSA PRIVATE KEY-----
@@ -147,6 +150,50 @@ like($@, qr/unrecognized key format/, "new_public_key croaks on certificate PEM 
 
 eval { Crypt::OpenSSL::RSA->new_public_key("not a PEM key at all") };
 like($@, qr/unrecognized key format/, "new_public_key croaks on non-PEM input");
+
+# --- PKCS#8 private key export ---
+
+{
+    my $rsa = Crypt::OpenSSL::RSA->new_private_key($DECRYPT_PRIVATE_KEY_STRING);
+    my $pkcs8_pem = $rsa->get_private_key_pkcs8_string();
+    like($pkcs8_pem, qr/^-----BEGIN PRIVATE KEY-----/m, "PKCS#8 output has correct header");
+    like($pkcs8_pem, qr/-----END PRIVATE KEY-----\s*$/m, "PKCS#8 output has correct footer");
+    unlike($pkcs8_pem, qr/BEGIN RSA PRIVATE KEY/, "PKCS#8 output is not PKCS#1 format");
+
+    # encrypted PKCS#8 export
+    my $pass = 'test_pkcs8_pass';
+    my $enc_pem = $rsa->get_private_key_pkcs8_string($pass, 'aes-128-cbc');
+    like($enc_pem, qr/^-----BEGIN ENCRYPTED PRIVATE KEY-----/m,
+         "encrypted PKCS#8 has correct header");
+
+    # Round-trip tests require new_private_key to read PKCS#8.  On pre-3.x
+    # PEM_read_bio_PrivateKey is macro'd to PEM_read_bio_RSAPrivateKey which
+    # only reads PKCS#1, so these must be skipped.
+    SKIP: {
+        skip "new_private_key cannot read PKCS#8 on OpenSSL < 3.x", 3
+            if $major < 3;
+
+        my $reimported = Crypt::OpenSSL::RSA->new_private_key($pkcs8_pem);
+        is($reimported->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING,
+           "PKCS#8 round-trip: re-import then export as PKCS#1 matches original");
+        is($reimported->get_private_key_pkcs8_string(), $pkcs8_pem,
+           "PKCS#8 round-trip: re-export as PKCS#8 matches");
+
+        my $dec_rsa = Crypt::OpenSSL::RSA->new_private_key($enc_pem, $pass);
+        is($dec_rsa->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING,
+           "encrypted PKCS#8 round-trip decrypts to original key");
+    }
+
+    # error: cipher without passphrase
+    eval { $rsa->get_private_key_pkcs8_string(undef, 'des3') };
+    like($@, qr/Passphrase is required for cipher/,
+         "get_private_key_pkcs8_string croaks when cipher given without passphrase");
+
+    # error: unsupported cipher
+    eval { $rsa->get_private_key_pkcs8_string($pass, 'bogus-cipher-xyz') };
+    like($@, qr/Unsupported cipher/,
+         "get_private_key_pkcs8_string croaks on unsupported cipher");
+}
 
 # --- X509 public key from private key matches PKCS1 ---
 
