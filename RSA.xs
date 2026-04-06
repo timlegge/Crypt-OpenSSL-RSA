@@ -398,9 +398,7 @@ static void check_max_message_length(rsaData* p_rsa, STRLEN from_length) {
     size = EVP_PKEY_get_size(p_rsa->rsa);
 
     if (p_rsa->padding == RSA_PKCS1_OAEP_PADDING) {
-        int digest_length = 0;
-        digest_length = get_digest_length(p_rsa->hashMode); /* croak()s on unknown NID */
-        max_len = size - (2 * digest_length) - 2;  /* OAEP overhead: 2*hLen + 2 */
+        max_len = size - 42;  /* 2 * SHA1_DIGEST_LENGTH + 2 */
         pad_name = "OAEP";
     } else if (p_rsa->padding == RSA_PKCS1_PADDING) {
         max_len = size - 11;  /* PKCS#1 v1.5 overhead */
