@@ -329,11 +329,14 @@ Decrypt a binary "string".  Croaks if the key is public only.
 =item private_encrypt
 
 Encrypt a binary "string" using the private key.  Croaks if the key is
-public only.
+public only.  On OpenSSL 3.x, only C<use_no_padding> and
+C<use_pkcs1_padding> are supported; OAEP and PSS will croak.
 
 =item public_decrypt
 
 Decrypt a binary "string" using the public (portion of the) key.
+On OpenSSL 3.x, only C<use_no_padding> and C<use_pkcs1_padding>
+are supported; OAEP and PSS will croak.
 
 =item sign
 

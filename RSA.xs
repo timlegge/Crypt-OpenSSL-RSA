@@ -451,28 +451,42 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
               "Use use_pkcs1_oaep_padding() for encryption, or use_pkcs1_padding() with sign()/verify().");
     }
 
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-
-    if(p_rsa->padding == RSA_PKCS1_PSS_PADDING) {
+    if(is_encrypt && p_rsa->padding == RSA_PKCS1_PSS_PADDING) {
         croak("PKCS#1 v2.1 RSA-PSS cannot be used for encryption operations call \"use_pkcs1_oaep_padding\" instead.");
     }
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
 
     EVP_PKEY_CTX *ctx = NULL;
     int error = 0;
     int crypt_pad;
+
+    if (is_encrypt) {
+        /* Encryption path: OAEP is the only safe padding for encrypt/decrypt. */
+        crypt_pad = p_rsa->padding;
+        if (p_rsa->padding != RSA_NO_PADDING) {
+            crypt_pad = RSA_PKCS1_OAEP_PADDING;
+        }
+    } else {
+        /* Sign/verify_recover path (private_encrypt / public_decrypt):
+           these are low-level RSA operations that respect the user's
+           padding choice.  OAEP and PSS are not valid here. */
+        if (p_rsa->padding == RSA_PKCS1_OAEP_PADDING) {
+            croak("OAEP padding is not supported for private_encrypt/public_decrypt. "
+                  "Call use_no_padding() or use_pkcs1_padding() first.");
+        }
+        if (p_rsa->padding == RSA_PKCS1_PSS_PADDING) {
+            croak("PSS padding with private_encrypt/public_decrypt is not supported. "
+                  "Use sign()/verify() for PSS signatures.");
+        }
+        crypt_pad = p_rsa->padding;
+    }
 
     ctx = EVP_PKEY_CTX_new_from_pkey(NULL, (EVP_PKEY* )p_rsa->rsa, NULL);
 
     THROW(ctx);
 
     THROW(init_crypt(ctx) == 1);
-    /* After the PKCS1 and PSS guards above, the only reachable padding
-       values here are RSA_NO_PADDING and RSA_PKCS1_OAEP_PADDING (for
-       encrypt/decrypt) or RSA_PKCS1_PADDING (for private_encrypt/public_decrypt). */
-    crypt_pad = p_rsa->padding;
-    if (is_encrypt && p_rsa->padding != RSA_NO_PADDING) {
-        crypt_pad = RSA_PKCS1_OAEP_PADDING;
-    }
     THROW(EVP_PKEY_CTX_set_rsa_padding(ctx, crypt_pad) > 0);
     THROW(p_crypt(ctx, NULL, &to_length, from, from_length) == 1);
     Newx(to, to_length, UNSIGNED_CHAR);

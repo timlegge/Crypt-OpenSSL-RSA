@@ -24,6 +24,7 @@ t/keygen.t
 t/padding.t
 t/pkcs1_sign.t
 t/private_crypt.t
+t/private_encrypt.t
 t/pss_auto_promote.t
 t/rsa.t
 t/sig_die.t
