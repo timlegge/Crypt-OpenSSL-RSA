@@ -4,6 +4,10 @@ use Test::More;
 use Crypt::OpenSSL::Random;
 use Crypt::OpenSSL::RSA;
 
+use Crypt::OpenSSL::Guess qw(openssl_version);
+
+my ($major, $minor, $patch) = openssl_version();
+
 # Regression tests for PKCS#1 v1.5 signing (RSASSA-PKCS1-v1_5).
 # Issue #146: PKCS#1 v1.5 was disabled entirely in v0.35 to mitigate
 # the Marvin attack, but the Marvin attack only affects decryption.
@@ -58,7 +62,9 @@ SKIP: {
 }
 
 # --- Cross-padding: sign with PKCS1, verify with PSS must fail ---
-{
+SKIP: {
+    skip "sign uses pkcs1_padding only on OpenSSL < 3.x", 1
+        if $major < 3;
     $rsa->use_pkcs1_padding();
     $rsa->use_sha256_hash();
     my $sig = $rsa->sign("cross-padding test");
