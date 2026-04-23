@@ -580,6 +580,12 @@ _new_public_key_x509_der(proto, key_string_SV)
 #endif
     BIO_free(bio);
     CHECK_OPEN_SSL(pkey);
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    if (EVP_PKEY_get_base_id(pkey) != EVP_PKEY_RSA) {
+        EVP_PKEY_free(pkey);
+        croak("The key loaded is not an RSA key");
+    }
+#endif
     RETVAL = make_rsa_obj(proto, pkey);
   OUTPUT:
     RETVAL
