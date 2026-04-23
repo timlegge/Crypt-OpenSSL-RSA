@@ -26,6 +26,7 @@ WriteMakefile(
     'PL_FILES'         => {},
     'LICENSE'          => 'perl',
     'PREREQ_PM' => {
+        'Crypt::OpenSSL::Bignum' => 0,
         'Crypt::OpenSSL::Random' => 0,
     },
     'TEST_REQUIRES' => {
@@ -45,9 +46,6 @@ WriteMakefile(
                 file    => 'RSA.pm',
                 version => MM->parse_version('RSA.pm'),
             },
-        },
-        recommends => {
-            'Crypt::OpenSSL::Bignum' => 0,
         },
         configure_requires => {
             'Crypt::OpenSSL::Guess' => '0.11',

@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use Carp;    # Removing carp will break the XS code.
+use Crypt::OpenSSL::Bignum;
 
 our $VERSION = '0.37';
 
