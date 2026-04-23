@@ -83,13 +83,16 @@ this (never documented) behavior is no longer the case.
 
     DER-encoded keys (raw binary ASN.1) are also accepted.
 
-    An optional parameter can be passed for passphrase-protected PEM private
+    An optional parameter can be passed for passphrase-protected private
     keys:
 
     - passphrase
 
-        The passphrase which protects the private key.  Note: passphrase
-        protection is only supported for PEM-encoded keys.
+        The passphrase which protects the private key.  For PEM keys, this
+        decrypts traditional encrypted PEM (`DEK-Info` header) and encrypted
+        PKCS#8 PEM (`BEGIN ENCRYPTED PRIVATE KEY`).  For DER keys, this
+        decrypts encrypted PKCS#8 DER (`EncryptedPrivateKeyInfo` ASN.1
+        structure).
 
 - generate\_key
 

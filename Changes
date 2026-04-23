@@ -1,5 +1,46 @@
 Revision history for Perl extension Crypt::OpenSSL::RSA.
 
+0.39 Apr 23 2026
+
+  [Bug Fixes]
+  - PR #171 GH #170: Fix macOS compile warnings. The OLD_CRUFTY_SSL_VERSION
+    macro used defined() inside a #define (undefined behavior when expanded
+    in #if directives); split into #ifdef/#else branches. Also cast
+    SvPV_nolen() result to UNSIGNED_CHAR* to silence the pointer-sign
+    mismatch in _load_rsa_key().
+  - PR #173: Reject non-RSA keys (EC, DSA, etc.) in _new_public_key_x509_der()
+    on OpenSSL 3.x. d2i_PUBKEY_bio() accepts any key type, unlike pre-3.x
+    d2i_RSA_PUBKEY_bio(); without validation a non-RSA DER key would be
+    stored in the rsaData struct and produce confusing failures later.
+  - PR #177: Check padding compatibility before message length in
+    private_encrypt() and public_decrypt(). Previously, calling these with
+    the default OAEP padding (or PSS) produced a misleading "plaintext too
+    long" error that hid the real issue (OAEP/PSS are fundamentally
+    incompatible with private_encrypt/public_decrypt). The clear
+    "OAEP/PSS padding is not supported" error is now emitted regardless of
+    data size, and the rejection extends to pre-3.x OpenSSL (previously
+    only checked on 3.x inside rsa_crypt()).
+  - PR #178: Validate key size in generate_key() before calling OpenSSL.
+    Reject negative, zero, and sub-512-bit key sizes with a clear croak
+    instead of letting OpenSSL produce cryptic errors or hang.
+  - PR #179 GH #174: Restore the lost configure_requires prereq on
+    Crypt::OpenSSL::Guess in Makefile.PL.
+  - PR #179 GH #175: Fix failing test 'Padding method pkcs1_pss is valid
+    for signing with ripemd160'.
+
+  [Improvements]
+  - PR #180: Add optional passphrase argument to new_private_key_der(),
+    enabling decryption of encrypted PKCS#8 DER (EncryptedPrivateKeyInfo)
+    private keys. On OpenSSL 3.x the passphrase is passed to the existing
+    OSSL_DECODER_CTX; on pre-3.x a d2i_PKCS8PrivateKey_bio() helper is
+    used. Previously only PEM-encoded keys supported a passphrase.
+
+  [Maintenance]
+  - PR #172: Fix 'passphase' -> 'passphrase' typo throughout the codebase
+    (RSA.xs internal names, RSA.pm POD for get_private_key_string, and the
+    test variable in t/format.t). The typo dates to the original 0.33
+    passphrase support. No functional change -- all renames are internal.
+
 0.38 Apr 23 2026
 
   [Bug Fixes]
