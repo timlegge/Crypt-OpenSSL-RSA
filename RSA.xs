@@ -462,7 +462,7 @@ SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
         /* Encryption path: OAEP is the only safe padding for encrypt/decrypt. */
         if (p_rsa->padding != RSA_NO_PADDING && p_rsa->padding != RSA_PKCS1_OAEP_PADDING) {
             croak("Only OAEP padding or no padding is supported for encrypt/decrypt. "
-                  "Call \"use_pkcs1_padding()\" or \"use_no_padding()\" first.");
+                  "Call \"use_pkcs1_oaep_padding()\" or \"use_no_padding()\" first.");
         }
     } else {
         /* Sign/verify_recover path (private_encrypt / public_decrypt):
