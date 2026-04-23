@@ -6,7 +6,7 @@ use Crypt::OpenSSL::RSA;
 
 use File::Temp qw(tempfile);
 
-BEGIN { plan tests => 24 }
+BEGIN { plan tests => 30 }
 
 # --- Generate a key pair for testing ---
 
@@ -124,6 +124,33 @@ like( $@, qr/unrecognized key format/,
 eval { Crypt::OpenSSL::RSA->new_public_key("") };
 like( $@, qr/unrecognized key format/,
     "new_public_key gives helpful error on empty string" );
+
+# --- Encrypted PKCS#8 DER private key with passphrase ---
+
+my $passphrase = 'test_der_pass';
+my $enc_pkcs8_pem = $rsa->get_private_key_pkcs8_string($passphrase, 'aes-128-cbc');
+my $enc_pkcs8_der = pem_to_der($enc_pkcs8_pem);
+
+is( ord(substr($enc_pkcs8_der, 0, 1)), 0x30,
+    "Encrypted PKCS#8 DER starts with SEQUENCE tag" );
+
+my $priv_from_enc_der;
+ok( $priv_from_enc_der = Crypt::OpenSSL::RSA->new_private_key($enc_pkcs8_der, $passphrase),
+    "new_private_key loads encrypted PKCS#8 DER with passphrase" );
+
+ok( $priv_from_enc_der->is_private(),
+    "Encrypted PKCS#8 DER-loaded key is private" );
+
+is( $priv_from_enc_der->get_public_key_x509_string(), $x509_pem,
+    "Encrypted PKCS#8 DER key exports same public key as original" );
+
+$priv_from_enc_der->use_sha256_hash();
+my $sig3 = $priv_from_enc_der->sign($plaintext);
+ok( $pub_from_x509_der->verify($plaintext, $sig3),
+    "Signature from encrypted PKCS#8 DER-loaded key verifies" );
+
+eval { Crypt::OpenSSL::RSA->new_private_key($enc_pkcs8_der, 'wrong_pass') };
+ok( $@, "new_private_key croaks on wrong passphrase for encrypted PKCS#8 DER" );
 
 # PEM header for wrong type
 eval { Crypt::OpenSSL::RSA->new_public_key("-----BEGIN CERTIFICATE-----\nfoo\n-----END CERTIFICATE-----\n") };

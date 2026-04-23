@@ -63,7 +63,7 @@ sub new_private_key {
     }
     elsif ( substr($p_key_string, 0, 1) eq "\x30" ) {
         # ASN.1 SEQUENCE tag detected — likely DER-encoded private key.
-        return $proto->_new_private_key_der($p_key_string);
+        return $proto->_new_private_key_der($p_key_string, @rest);
     }
     else {
         croak "unrecognized key format: expected PEM-encoded key (starting with '-----BEGIN') "
@@ -193,15 +193,18 @@ be changed with C<use_xxx_padding>.
 
 DER-encoded keys (raw binary ASN.1) are also accepted.
 
-An optional parameter can be passed for passphrase-protected PEM private
+An optional parameter can be passed for passphrase-protected private
 keys:
 
 =over
 
 =item passphrase
 
-The passphrase which protects the private key.  Note: passphrase
-protection is only supported for PEM-encoded keys.
+The passphrase which protects the private key.  For PEM keys, this
+decrypts traditional encrypted PEM (C<DEK-Info> header) and encrypted
+PKCS#8 PEM (C<BEGIN ENCRYPTED PRIVATE KEY>).  For DER keys, this
+decrypts encrypted PKCS#8 DER (C<EncryptedPrivateKeyInfo> ASN.1
+structure).
 
 =back
 
