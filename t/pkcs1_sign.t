@@ -62,9 +62,12 @@ SKIP: {
 }
 
 # --- Cross-padding: sign with PKCS1, verify with PSS must fail ---
+# On pre-3.x and LibreSSL, RSA_verify ignores the padding mode setting
+# openssl_version() returns undef for the third element on LibreSSL
+my $is_libressl = !defined $patch;
 SKIP: {
-    skip "sign uses pkcs1_padding only on OpenSSL < 3.x", 1
-        if $major < 3;
+    skip "cross-padding test requires OpenSSL 3.x (not LibreSSL)", 1
+        if $major < 3 || $is_libressl;
     $rsa->use_pkcs1_padding();
     $rsa->use_sha256_hash();
     my $sig = $rsa->sign("cross-padding test");

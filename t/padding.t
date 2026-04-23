@@ -82,10 +82,12 @@ is( $rsa_priv->decrypt( $rsa_priv->encrypt($plaintext) ), $plaintext, "private k
 my $rsa_pub = Crypt::OpenSSL::RSA->new_public_key($public_key_string);
 
 $plaintext .= $plaintext x 5;
-# sslv23 is unsupported on OpenSSL 3.x
+# sslv23 is unsupported on OpenSSL 3.x but LibreSSL still supports it
+# openssl_version() returns undef for the third element on LibreSSL
+my $is_libressl = !defined $patch;
 SKIP: {
-    skip "OpenSSL version less than 3.0 supports sslv23", 2
-        if $major lt '3.0';
+    skip "sslv23 is available on OpenSSL < 3.0 and LibreSSL", 2
+        if $major lt '3.0' || $is_libressl;
     eval {
         $rsa->use_sslv23_padding;
     };
