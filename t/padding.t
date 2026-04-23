@@ -48,7 +48,7 @@ sub _Test_Sign_And_Verify {
 
   SKIP: {
         skip "OpenSSL error: illegal or unsupported padding mode - $hash", 6 if $@ =~ /illegal or unsupported padding mode/i;
-        skip "OpenSSL error: invalid digest - $hash", 6 if $@ =~ /invalid digest/i;
+        skip "OpenSSL error: invalid digest - $hash", 6 if $@ =~ /invalid digest|no digest set/i;
         ok(!$@, "Padding method $padding is valid for signing with $hash");
         ok( $rsa_pub->verify( $plaintext, $sig ), "Padding method $padding is valid for verifying with $hash");
 
