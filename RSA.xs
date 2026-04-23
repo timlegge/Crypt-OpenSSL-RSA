@@ -1218,6 +1218,14 @@ public_decrypt(p_rsa, p_ciphertext)
     rsaData* p_rsa;
     SV* p_ciphertext;
   CODE:
+    if (p_rsa->padding == RSA_PKCS1_OAEP_PADDING) {
+        croak("OAEP padding is not supported for private_encrypt/public_decrypt. "
+              "Call use_no_padding() or use_pkcs1_padding() first.");
+    }
+    if (p_rsa->padding == RSA_PKCS1_PSS_PADDING) {
+        croak("PSS padding with private_encrypt/public_decrypt is not supported. "
+              "Use sign()/verify() for PSS signatures.");
+    }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     RETVAL = rsa_crypt(p_rsa, p_ciphertext, EVP_PKEY_verify_recover, EVP_PKEY_verify_recover_init, 0 /* is_encrypt */);
 #else

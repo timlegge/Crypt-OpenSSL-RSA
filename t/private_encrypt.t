@@ -4,10 +4,6 @@ use Test::More;
 
 use Crypt::OpenSSL::Random;
 use Crypt::OpenSSL::RSA;
-use Crypt::OpenSSL::Guess qw(openssl_version);
-
-my ($major) = openssl_version();
-
 plan tests => 14;
 
 Crypt::OpenSSL::Random::random_seed("OpenSSL needs at least 32 bytes.");
@@ -35,13 +31,8 @@ like($@, qr/OAEP padding is not supported for private_encrypt/,
 # --- OAEP: should croak for public_decrypt ---
 
 eval { $rsa->public_decrypt("test" x 64) };
-if ($major ge '3') {
-    like($@, qr/OAEP padding is not supported for private_encrypt\/public_decrypt/,
-         "public_decrypt with OAEP croaks with clear message on OpenSSL 3.x");
-} else {
-    like($@, qr/./,
-         "public_decrypt with OAEP fails on pre-3.x");
-}
+like($@, qr/OAEP padding is not supported for private_encrypt\/public_decrypt/,
+     "public_decrypt with OAEP croaks with clear message");
 
 # --- PSS: should croak for private_encrypt ---
 
@@ -53,13 +44,8 @@ like($@, qr/PSS padding with private_encrypt\/public_decrypt is not supported/,
 # --- PSS: should croak for public_decrypt ---
 
 eval { $rsa->public_decrypt("test" x 64) };
-if ($major ge '3') {
-    like($@, qr/PSS padding with private_encrypt\/public_decrypt is not supported/,
-         "public_decrypt with PSS croaks with clear message on OpenSSL 3.x");
-} else {
-    like($@, qr/./,
-         "public_decrypt with PSS fails on pre-3.x");
-}
+like($@, qr/PSS padding with private_encrypt\/public_decrypt is not supported/,
+     "public_decrypt with PSS croaks with clear message");
 
 # --- Error ordering: padding error must come before length error ---
 
