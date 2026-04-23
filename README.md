@@ -56,9 +56,15 @@ this (never documented) behavior is no longer the case.
 - new\_public\_key
 
     Create a new `Crypt::OpenSSL::RSA` object by loading a public key in
-    from a string containing Base64/DER-encoding of either the PKCS1 or
-    X.509 representation of the key.  The string should include the
-    `-----BEGIN...-----` and `-----END...-----` lines.
+    from a string containing either PEM or DER encoding of the PKCS#1 or
+    X.509 representation of the key.
+
+    For PEM keys, the string should include the `-----BEGIN...-----` and
+    `-----END...-----` lines.  Both `BEGIN RSA PUBLIC KEY` (PKCS#1) and
+    `BEGIN PUBLIC KEY` (X.509/SubjectPublicKeyInfo) formats are supported.
+
+    DER-encoded keys (raw binary ASN.1) are also accepted and the format
+    (PKCS#1 vs X.509) is auto-detected.
 
     The padding is set to PKCS1\_OAEP, but can be changed with the
     `use_xxx_padding` methods.
@@ -69,16 +75,21 @@ this (never documented) behavior is no longer the case.
 - new\_private\_key
 
     Create a new `Crypt::OpenSSL::RSA` object by loading a private key in
-    from an string containing the Base64/DER encoding of the PKCS1
-    representation of the key.  The string should include the
-    `-----BEGIN...-----` and `-----END...-----` lines.  The padding is set to
-    PKCS1\_OAEP, but can be changed with `use_xxx_padding`.
+    from a string containing either PEM or DER encoding of the key.
 
-    An optional parameter can be passed for passphase protected private key:
+    For PEM keys, the string should include the `-----BEGIN...-----` and
+    `-----END...-----` lines.  The padding is set to PKCS1\_OAEP, but can
+    be changed with `use_xxx_padding`.
 
-    - passphase
+    DER-encoded keys (raw binary ASN.1) are also accepted.
 
-        The passphase which protects the private key.
+    An optional parameter can be passed for passphrase-protected PEM private
+    keys:
+
+    - passphrase
+
+        The passphrase which protects the private key.  Note: passphrase
+        protection is only supported for PEM-encoded keys.
 
 - generate\_key
 
@@ -172,6 +183,20 @@ this (never documented) behavior is no longer the case.
         The cipher algorithm used to protect the private key. Default to
         'des3'.
 
+- get\_private\_key\_pkcs8\_string
+
+    Return the Base64/DER-encoded PKCS#8 representation of the private
+    key.  This string has header and footer lines:
+
+        -----BEGIN PRIVATE KEY-----
+        -----END PRIVATE KEY-----
+
+    This is the format produced by `openssl pkey -outform PEM`, and is
+    the private-key counterpart of `get_public_key_x509_string`.
+
+    Accepts the same optional passphrase and cipher-name parameters as
+    `get_private_key_string`.
+
 - encrypt
 
     Encrypt a binary "string" using the public (portion of the) key.
@@ -183,11 +208,14 @@ this (never documented) behavior is no longer the case.
 - private\_encrypt
 
     Encrypt a binary "string" using the private key.  Croaks if the key is
-    public only.
+    public only.  On OpenSSL 3.x, only `use_no_padding` and
+    `use_pkcs1_padding` are supported; OAEP and PSS will croak.
 
 - public\_decrypt
 
     Decrypt a binary "string" using the public (portion of the) key.
+    On OpenSSL 3.x, only `use_no_padding` and `use_pkcs1_padding`
+    are supported; OAEP and PSS will croak.
 
 - sign
 
