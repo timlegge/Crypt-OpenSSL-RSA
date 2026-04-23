@@ -149,6 +149,6 @@ SKIP: {
     my $ec_pub_der = pem_to_der($ec_pub_pem);
     eval { Crypt::OpenSSL::RSA->_new_public_key_x509_der($ec_pub_der) };
     ok($@, "_new_public_key_x509_der rejects EC DER key");
-    like($@, qr/not an RSA key|ASN1/i,
+    like($@, qr/not an RSA key|ASN1|expecting an rsa key/i,
         "_new_public_key_x509_der gives appropriate error for non-RSA DER key");
 }
