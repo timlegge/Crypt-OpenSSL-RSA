@@ -49,6 +49,26 @@ static int _write_pkcs8_pem(BIO* bio, RSA* rsa, const EVP_CIPHER* enc,
 }
 #endif
 
+/* Pre-3.x helper for loading encrypted PKCS#8 DER private keys.
+   Placed BEFORE the EVP_PKEY->RSA compatibility macros so that
+   EVP_PKEY, EVP_PKEY_free, and EVP_PKEY_get1_RSA resolve to their
+   real OpenSSL symbols. */
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+static RSA* _load_pkcs8_der_key(BIO* bio, const char* passphrase)
+{
+    EVP_PKEY* pkey;
+    RSA* rsa;
+
+    pkey = d2i_PKCS8PrivateKey_bio(bio, NULL, NULL, (void*)passphrase);
+    if (!pkey)
+        return NULL;
+
+    rsa = EVP_PKEY_get1_RSA(pkey);
+    EVP_PKEY_free(pkey);
+    return rsa;
+}
+#endif
+
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #define UNSIGNED_CHAR unsigned char
 #define SIZE_T_INT size_t
@@ -630,9 +650,10 @@ _new_public_key_pkcs1_der(proto, key_string_SV)
     RETVAL
 
 SV*
-_new_private_key_der(proto, key_string_SV)
+_new_private_key_der(proto, key_string_SV, passphrase_SV=&PL_sv_undef)
     SV* proto;
     SV* key_string_SV;
+    SV* passphrase_SV;
   PREINIT:
     STRLEN keyStringLength;
     char* keyString;
@@ -653,6 +674,15 @@ _new_private_key_der(proto, key_string_SV)
         BIO_free(bio);
         croakSsl(__FILE__, __LINE__);
     }
+    if (SvPOK(passphrase_SV)) {
+        STRLEN passlen;
+        unsigned char* pass = (unsigned char*)SvPV(passphrase_SV, passlen);
+        if (!OSSL_DECODER_CTX_set_passphrase(dctx, pass, passlen)) {
+            OSSL_DECODER_CTX_free(dctx);
+            BIO_free(bio);
+            croakSsl(__FILE__, __LINE__);
+        }
+    }
     if (!OSSL_DECODER_from_bio(dctx, bio)) {
         OSSL_DECODER_CTX_free(dctx);
         BIO_free(bio);
@@ -660,7 +690,12 @@ _new_private_key_der(proto, key_string_SV)
     }
     OSSL_DECODER_CTX_free(dctx);
 #else
-    pkey = d2i_RSAPrivateKey_bio(bio, NULL);
+    if (SvPOK(passphrase_SV)) {
+        char* passphrase = SvPV_nolen(passphrase_SV);
+        pkey = _load_pkcs8_der_key(bio, passphrase);
+    } else {
+        pkey = d2i_RSAPrivateKey_bio(bio, NULL);
+    }
 #endif
     BIO_free(bio);
     CHECK_OPEN_SSL(pkey);
