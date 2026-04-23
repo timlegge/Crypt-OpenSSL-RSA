@@ -289,14 +289,14 @@ header and footer lines:
   -----BEGIN RSA PRIVATE KEY------
   -----END RSA PRIVATE KEY------
 
-2 optional parameters can be passed for passphase protected private key
+2 optional parameters can be passed for passphrase protected private key
 string:
 
 =over
 
-=item passphase
+=item passphrase
 
-The passphase which protects the private key.
+The passphrase which protects the private key.
 
 =item cipher name
 

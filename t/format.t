@@ -88,23 +88,23 @@ is( $public_key->get_public_key_pkcs1_string(), $PUBLIC_KEY_PKCS1_STRING, "get_p
 is( $private_key->get_public_key_pkcs1_string(), $private_key->get_public_key_string(), "pkcs1 alias matches get_public_key_string on private key" );
 ok( $public_key = Crypt::OpenSSL::RSA->new_public_key($private_key->get_public_key_pkcs1_string()), "new_public_key accepts output of get_public_key_pkcs1_string" );
 
-my $passphase = '123456';
-ok( $private_key = Crypt::OpenSSL::RSA->new_private_key( $ENCRYPT_PRIVATE_KEY_STRING, $passphase ), "load encrypted private key" );
+my $passphrase = '123456';
+ok( $private_key = Crypt::OpenSSL::RSA->new_private_key( $ENCRYPT_PRIVATE_KEY_STRING, $passphrase ), "load encrypted private key" );
 is( $private_key->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING, "encrypted key decrypts to expected private key" );
 ok( $private_key  = Crypt::OpenSSL::RSA->new_private_key($DECRYPT_PRIVATE_KEY_STRING), "load decrypted private key" );
-ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string($passphase), $passphase ), "re-encrypt and reload with passphrase" );
+ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string($passphrase), $passphrase ), "re-encrypt and reload with passphrase" );
 is( $private_key2->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING, "re-encrypted key round-trips" );
-ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string( $passphase, 'des3' ), $passphase ), "encrypt with des3 and reload" );
+ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string( $passphrase, 'des3' ), $passphrase ), "encrypt with des3 and reload" );
 is( $private_key2->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING, "des3-encrypted key round-trips" );
-ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string( $passphase, 'aes-128-cbc' ), $passphase ), "encrypt with aes-128-cbc and reload" );
+ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string( $passphrase, 'aes-128-cbc' ), $passphrase ), "encrypt with aes-128-cbc and reload" );
 is( $private_key2->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING, "aes-128-cbc-encrypted key round-trips" );
 
 # --- Additional cipher algorithms ---
 
-ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string( $passphase, 'aes-256-cbc' ), $passphase ), "encrypt with aes-256-cbc and reload" );
+ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string( $passphrase, 'aes-256-cbc' ), $passphrase ), "encrypt with aes-256-cbc and reload" );
 is( $private_key2->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING, "aes-256-cbc-encrypted key round-trips" );
 
-ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string( $passphase, 'aes-192-cbc' ), $passphase ), "encrypt with aes-192-cbc and reload" );
+ok( $private_key2 = Crypt::OpenSSL::RSA->new_private_key( $private_key->get_private_key_string( $passphrase, 'aes-192-cbc' ), $passphrase ), "encrypt with aes-192-cbc and reload" );
 is( $private_key2->get_private_key_string(), $DECRYPT_PRIVATE_KEY_STRING, "aes-192-cbc-encrypted key round-trips" );
 
 # --- Passphrase with special characters ---
@@ -120,7 +120,7 @@ like($@, qr/Passphrase is required for cipher/, "get_private_key_string croaks w
 
 # --- Error: unsupported cipher name ---
 
-eval { $private_key->get_private_key_string($passphase, 'bogus-cipher-xyz') };
+eval { $private_key->get_private_key_string($passphrase, 'bogus-cipher-xyz') };
 like($@, qr/Unsupported cipher/, "get_private_key_string croaks on unsupported cipher");
 
 # --- Error: export private key from public-only key ---
@@ -132,7 +132,7 @@ like($@, qr/Public keys cannot export private key strings/,
 
 # --- Error: wrong passphrase on re-import ---
 
-my $encrypted_pem = $private_key->get_private_key_string($passphase, 'aes-128-cbc');
+my $encrypted_pem = $private_key->get_private_key_string($passphrase, 'aes-128-cbc');
 eval { Crypt::OpenSSL::RSA->new_private_key($encrypted_pem, 'wrong_passphrase') };
 ok($@, "new_private_key croaks on wrong passphrase");
 

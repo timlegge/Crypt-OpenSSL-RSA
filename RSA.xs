@@ -368,24 +368,24 @@ SV* extractBioString(BIO* p_stringBio)
 
 EVP_PKEY*  _load_rsa_key(SV* p_keyStringSv,
                         EVP_PKEY*(*p_loader)(BIO *, EVP_PKEY**, pem_password_cb*, void*),
-                   SV* p_passphaseSv)
+                   SV* p_passphraseSv)
 {
     STRLEN keyStringLength;
     char* keyString;
-    UNSIGNED_CHAR *passphase = NULL;
+    UNSIGNED_CHAR *passphrase = NULL;
 
     EVP_PKEY* rsa;
     BIO* stringBIO;
 
     keyString = SvPV(p_keyStringSv, keyStringLength);
 
-    if (SvPOK(p_passphaseSv)) {
-        passphase = (UNSIGNED_CHAR *)SvPV_nolen(p_passphaseSv);
+    if (SvPOK(p_passphraseSv)) {
+        passphrase = (UNSIGNED_CHAR *)SvPV_nolen(p_passphraseSv);
     }
 
     CHECK_OPEN_SSL(stringBIO = BIO_new_mem_buf(keyString, keyStringLength));
 
-    rsa = p_loader(stringBIO, NULL, NULL, passphase);
+    rsa = p_loader(stringBIO, NULL, NULL, passphrase);
 
     CHECK_OPEN_SSL(BIO_set_close(stringBIO, BIO_CLOSE) == 1);
     BIO_free(stringBIO);
@@ -531,13 +531,13 @@ BOOT:
 #endif
 
 SV*
-_new_private_key_pem(proto, key_string_SV, passphase_SV=&PL_sv_undef)
+_new_private_key_pem(proto, key_string_SV, passphrase_SV=&PL_sv_undef)
     SV* proto;
     SV* key_string_SV;
-    SV* passphase_SV;
+    SV* passphrase_SV;
   CODE:
     RETVAL = make_rsa_obj(
-        proto, _load_rsa_key(key_string_SV, PEM_read_bio_PrivateKey, passphase_SV));
+        proto, _load_rsa_key(key_string_SV, PEM_read_bio_PrivateKey, passphrase_SV));
   OUTPUT:
     RETVAL
 
@@ -670,14 +670,14 @@ DESTROY(p_rsa)
     Safefree(p_rsa);
 
 SV*
-get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_undef)
+get_private_key_string(p_rsa, passphrase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_undef)
     rsaData* p_rsa;
-    SV* passphase_SV;
+    SV* passphrase_SV;
     SV* cipher_name_SV;
   PREINIT:
     BIO* stringBIO;
-    char* passphase = NULL;
-    STRLEN passphaseLength = 0;
+    char* passphrase = NULL;
+    STRLEN passphraseLength = 0;
     char* cipher_name;
     const EVP_CIPHER* enc = NULL;
   CODE:
@@ -685,11 +685,11 @@ get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_u
     {
         croak("Public keys cannot export private key strings");
     }
-    if (SvPOK(cipher_name_SV) && !SvPOK(passphase_SV)) {
+    if (SvPOK(cipher_name_SV) && !SvPOK(passphrase_SV)) {
         croak("Passphrase is required for cipher");
     }
-    if (SvPOK(passphase_SV)) {
-        passphase = SvPV(passphase_SV, passphaseLength);
+    if (SvPOK(passphrase_SV)) {
+        passphrase = SvPV(passphrase_SV, passphraseLength);
         if (SvPOK(cipher_name_SV)) {
             cipher_name = SvPV_nolen(cipher_name_SV);
         }
@@ -704,29 +704,29 @@ get_private_key_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_u
 
     CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
     CHECK_OPEN_SSL_BIO(PEM_write_bio_PrivateKey_traditional(
-        stringBIO, p_rsa->rsa, enc, (unsigned char* ) passphase, passphaseLength, NULL, NULL), stringBIO);
+        stringBIO, p_rsa->rsa, enc, (unsigned char* ) passphrase, passphraseLength, NULL, NULL), stringBIO);
     RETVAL = extractBioString(stringBIO);
 
   OUTPUT:
     RETVAL
 
 SV*
-get_private_key_pkcs8_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_undef)
+get_private_key_pkcs8_string(p_rsa, passphrase_SV=&PL_sv_undef, cipher_name_SV=&PL_sv_undef)
     rsaData* p_rsa;
-    SV* passphase_SV;
+    SV* passphrase_SV;
     SV* cipher_name_SV;
   PREINIT:
     BIO* stringBIO;
-    char* passphase = NULL;
-    STRLEN passphaseLength = 0;
+    char* passphrase = NULL;
+    STRLEN passphraseLength = 0;
     char* cipher_name;
     const EVP_CIPHER* enc = NULL;
   CODE:
-    if (SvPOK(cipher_name_SV) && !SvPOK(passphase_SV)) {
+    if (SvPOK(cipher_name_SV) && !SvPOK(passphrase_SV)) {
         croak("Passphrase is required for cipher");
     }
-    if (SvPOK(passphase_SV)) {
-        passphase = SvPV(passphase_SV, passphaseLength);
+    if (SvPOK(passphrase_SV)) {
+        passphrase = SvPV(passphrase_SV, passphraseLength);
         if (SvPOK(cipher_name_SV)) {
             cipher_name = SvPV_nolen(cipher_name_SV);
         }
@@ -742,10 +742,10 @@ get_private_key_pkcs8_string(p_rsa, passphase_SV=&PL_sv_undef, cipher_name_SV=&P
     CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     CHECK_OPEN_SSL_BIO(PEM_write_bio_PrivateKey(
-        stringBIO, p_rsa->rsa, enc, (unsigned char*) passphase, passphaseLength, NULL, NULL), stringBIO);
+        stringBIO, p_rsa->rsa, enc, (unsigned char*) passphrase, passphraseLength, NULL, NULL), stringBIO);
 #else
     CHECK_OPEN_SSL_BIO(_write_pkcs8_pem(
-        stringBIO, p_rsa->rsa, enc, (unsigned char*) passphase, passphaseLength), stringBIO);
+        stringBIO, p_rsa->rsa, enc, (unsigned char*) passphrase, passphraseLength), stringBIO);
 #endif
     RETVAL = extractBioString(stringBIO);
 

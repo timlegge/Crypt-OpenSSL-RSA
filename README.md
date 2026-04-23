@@ -171,12 +171,12 @@ this (never documented) behavior is no longer the case.
         -----BEGIN RSA PRIVATE KEY------
         -----END RSA PRIVATE KEY------
 
-    2 optional parameters can be passed for passphase protected private key
+    2 optional parameters can be passed for passphrase protected private key
     string:
 
-    - passphase
+    - passphrase
 
-        The passphase which protects the private key.
+        The passphrase which protects the private key.
 
     - cipher name
 
