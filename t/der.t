@@ -4,7 +4,9 @@ use Test::More;
 use MIME::Base64;
 use Crypt::OpenSSL::RSA;
 
-BEGIN { plan tests => 22 }
+use File::Temp qw(tempfile);
+
+BEGIN { plan tests => 24 }
 
 # --- Generate a key pair for testing ---
 
@@ -127,3 +129,26 @@ like( $@, qr/unrecognized key format/,
 eval { Crypt::OpenSSL::RSA->new_public_key("-----BEGIN CERTIFICATE-----\nfoo\n-----END CERTIFICATE-----\n") };
 like( $@, qr/unrecognized key format/,
     "new_public_key gives helpful error on certificate PEM" );
+
+# --- Non-RSA DER key rejection ---
+# On OpenSSL 3.x, d2i_PUBKEY_bio() accepts any key type.
+# _new_public_key_x509_der must reject non-RSA keys.
+
+SKIP: {
+    my $ec_pem = `openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:prime256v1 2>/dev/null`;
+    skip "EC key generation not available", 2
+        unless ($? >> 8) == 0 && $ec_pem =~ /-----BEGIN PRIVATE KEY-----/;
+
+    my ($tmpfh, $tmpfile) = tempfile(UNLINK => 1);
+    print $tmpfh $ec_pem;
+    close $tmpfh;
+    my $ec_pub_pem = `openssl pkey -in $tmpfile -pubout -outform PEM 2>/dev/null`;
+    skip "EC public key export failed", 2
+        unless ($? >> 8) == 0 && $ec_pub_pem =~ /-----BEGIN PUBLIC KEY-----/;
+
+    my $ec_pub_der = pem_to_der($ec_pub_pem);
+    eval { Crypt::OpenSSL::RSA->_new_public_key_x509_der($ec_pub_der) };
+    ok($@, "_new_public_key_x509_der rejects EC DER key");
+    like($@, qr/not an RSA key|ASN1/i,
+        "_new_public_key_x509_der gives appropriate error for non-RSA DER key");
+}
