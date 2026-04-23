@@ -4,11 +4,7 @@ use Test::More;
 
 use Crypt::OpenSSL::Random;
 use Crypt::OpenSSL::RSA;
-use Crypt::OpenSSL::Guess qw(openssl_version);
-
-my ($major) = openssl_version();
-
-plan tests => 10;
+plan tests => 14;
 
 Crypt::OpenSSL::Random::random_seed("OpenSSL needs at least 32 bytes.");
 Crypt::OpenSSL::RSA->import_random_seed();
@@ -29,43 +25,51 @@ is($dec, $data, "public_decrypt(private_encrypt(data)) round-trips with no_paddi
 
 $rsa->use_pkcs1_oaep_padding();
 eval { $rsa->private_encrypt("test") };
-if ($major ge '3') {
-    like($@, qr/OAEP padding is not supported for private_encrypt/,
-         "private_encrypt with OAEP croaks with clear message on OpenSSL 3.x");
-} else {
-    # Pre-3.x uses RSA_private_encrypt which handles padding differently
-    ok(1, "private_encrypt with OAEP behavior on pre-3.x (skipped)");
-}
+like($@, qr/OAEP padding is not supported for private_encrypt/,
+     "private_encrypt with OAEP croaks with clear message");
 
 # --- OAEP: should croak for public_decrypt ---
 
 eval { $rsa->public_decrypt("test" x 64) };
-if ($major ge '3') {
-    like($@, qr/OAEP padding is not supported for private_encrypt\/public_decrypt/,
-         "public_decrypt with OAEP croaks with clear message on OpenSSL 3.x");
-} else {
-    ok(1, "public_decrypt with OAEP behavior on pre-3.x (skipped)");
-}
+like($@, qr/OAEP padding is not supported for private_encrypt\/public_decrypt/,
+     "public_decrypt with OAEP croaks with clear message");
 
 # --- PSS: should croak for private_encrypt ---
 
 $rsa->use_pkcs1_pss_padding();
 eval { $rsa->private_encrypt("test") };
-if ($major ge '3') {
-    like($@, qr/PSS padding with private_encrypt\/public_decrypt is not supported/,
-         "private_encrypt with PSS croaks with clear message on OpenSSL 3.x");
-} else {
-    ok(1, "private_encrypt with PSS behavior on pre-3.x (skipped)");
-}
+like($@, qr/PSS padding with private_encrypt\/public_decrypt is not supported/,
+     "private_encrypt with PSS croaks with clear message");
 
 # --- PSS: should croak for public_decrypt ---
 
 eval { $rsa->public_decrypt("test" x 64) };
-if ($major ge '3') {
+like($@, qr/PSS padding with private_encrypt\/public_decrypt is not supported/,
+     "public_decrypt with PSS croaks with clear message");
+
+# --- Error ordering: padding error must come before length error ---
+
+{
+    my $rsa_fresh = Crypt::OpenSSL::RSA->generate_key(2048);
+    my $large_data = "x" x 250;  # exceeds OAEP limit (256 - 42 = 214)
+    eval { $rsa_fresh->private_encrypt($large_data) };
+    like($@, qr/OAEP padding is not supported for private_encrypt/,
+         "private_encrypt with default OAEP + oversized data gives padding error, not length error");
+
+    $rsa_fresh->use_pkcs1_pss_padding();
+    eval { $rsa_fresh->private_encrypt($large_data) };
     like($@, qr/PSS padding with private_encrypt\/public_decrypt is not supported/,
-         "public_decrypt with PSS croaks with clear message on OpenSSL 3.x");
-} else {
-    ok(1, "public_decrypt with PSS behavior on pre-3.x (skipped)");
+         "private_encrypt with PSS + oversized data gives padding error, not length error");
+
+    $rsa_fresh->use_pkcs1_oaep_padding();
+    my $exact_data = "y" x 215;  # just over OAEP limit
+    eval { $rsa_fresh->private_encrypt($exact_data) };
+    like($@, qr/OAEP padding is not supported for private_encrypt/,
+         "private_encrypt with OAEP + barely-over-limit data gives padding error, not length error");
+
+    $rsa_fresh->use_pkcs1_padding();
+    eval { $rsa_fresh->private_encrypt("test") };
+    ok(!$@, "private_encrypt with PKCS#1 v1.5 padding works");
 }
 
 # --- Encryption operations still work correctly ---
