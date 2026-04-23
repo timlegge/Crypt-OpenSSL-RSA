@@ -19,7 +19,7 @@ my $HAS_BIGNUM = eval { require Crypt::OpenSSL::Bignum; 1 } ? 1 : 0;
 my $BITS = 2048;
 my $BYTES = $BITS / 8;
 
-plan tests => 24;
+plan tests => 29;
 
 # --- Default exponent (65537) explicitly passed ---
 {
@@ -160,4 +160,22 @@ plan tests => 24;
         my $result = eval { $rsa->verify($msg, $sig256) };
         ok(!$result, "SHA256 signature fails under SHA1 mode");
     }
+}
+
+# --- Key size validation ---
+{
+    eval { Crypt::OpenSSL::RSA->generate_key(-1) };
+    like($@, qr/at least 512 bits/, "generate_key croaks on negative key size");
+
+    eval { Crypt::OpenSSL::RSA->generate_key(0) };
+    like($@, qr/at least 512 bits/, "generate_key croaks on zero key size");
+
+    eval { Crypt::OpenSSL::RSA->generate_key(256) };
+    like($@, qr/at least 512 bits/, "generate_key croaks on 256-bit key size");
+
+    eval { Crypt::OpenSSL::RSA->generate_key(511) };
+    like($@, qr/at least 512 bits/, "generate_key croaks on 511-bit key size");
+
+    my $rsa = eval { Crypt::OpenSSL::RSA->generate_key(512) };
+    ok($rsa && !$@, "generate_key accepts 512-bit key size (minimum)");
 }
