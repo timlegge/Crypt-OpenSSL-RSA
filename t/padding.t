@@ -3,9 +3,10 @@ use Test::More;
 
 use Crypt::OpenSSL::Random;
 use Crypt::OpenSSL::RSA;
-use Crypt::OpenSSL::Guess qw(openssl_version);
+use Crypt::OpenSSL::Guess qw(openssl_version find_openssl_prefix find_openssl_exec);
 
 my ($major, $minor, $patch) = openssl_version;
+my $is_libressl = (`"@{[find_openssl_exec(find_openssl_prefix())]}" version` =~ /LibreSSL/);
 
 BEGIN {
     plan tests => 124 + ( UNIVERSAL::can( "Crypt::OpenSSL::RSA", "use_sha512_hash" ) ? 4 * 5 : 0 );
@@ -83,8 +84,6 @@ my $rsa_pub = Crypt::OpenSSL::RSA->new_public_key($public_key_string);
 
 $plaintext .= $plaintext x 5;
 # sslv23 is unsupported on OpenSSL 3.x but LibreSSL still supports it
-# openssl_version() returns undef for the third element on LibreSSL
-my $is_libressl = !defined $patch;
 SKIP: {
     skip "sslv23 is available on OpenSSL < 3.0 and LibreSSL", 2
         if $major lt '3.0' || $is_libressl;
