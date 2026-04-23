@@ -25,6 +25,9 @@ WriteMakefile(
     'MIN_PERL_VERSION' => 5.006,
     'PL_FILES'         => {},
     'LICENSE'          => 'perl',
+    'CONFIGURE_REQUIRES' => {
+        "Crypt::OpenSSL::Guess" => 0.11,
+    },
     'PREREQ_PM' => {
         'Crypt::OpenSSL::Bignum' => 0,
         'Crypt::OpenSSL::Random' => 0,
