@@ -37,7 +37,7 @@ sub _Test_Sign_And_Verify {
     my $sig = eval { $rsa->sign($plaintext) };
   SKIP: {
         skip "OpenSSL error: illegal or unsupported padding mode - $hash", 5 if $@ =~ /illegal or unsupported padding mode/i;
-        skip "OpenSSL error: invalid digest - $hash", 5 if $@ =~ /invalid digest/i;
+        skip "OpenSSL error: invalid digest - $hash", 5 if $@ =~ /invalid digest|no digest set/i;
         ok( $rsa_pub->verify( $plaintext, $sig ), "rsa_pub verify $hash");
 
         my $false_sig = unpack "H*", $sig;
