@@ -91,7 +91,11 @@ typedef struct
 
 #define PACKAGE_NAME "Crypt::OpenSSL::RSA"
 
-#define OLD_CRUFTY_SSL_VERSION (OPENSSL_VERSION_NUMBER < 0x10100000L || (defined(LIBRESSL_VERSION_NUMBER) && LIBRESSL_VERSION_NUMBER < 0x03050000fL))
+#ifdef LIBRESSL_VERSION_NUMBER
+#define OLD_CRUFTY_SSL_VERSION (OPENSSL_VERSION_NUMBER < 0x10100000L || LIBRESSL_VERSION_NUMBER < 0x03050000fL)
+#else
+#define OLD_CRUFTY_SSL_VERSION (OPENSSL_VERSION_NUMBER < 0x10100000L)
+#endif
 
 void croakSsl(char* p_file, int p_line)
 {
@@ -376,7 +380,7 @@ EVP_PKEY*  _load_rsa_key(SV* p_keyStringSv,
     keyString = SvPV(p_keyStringSv, keyStringLength);
 
     if (SvPOK(p_passphaseSv)) {
-        passphase = SvPV_nolen(p_passphaseSv);
+        passphase = (UNSIGNED_CHAR *)SvPV_nolen(p_passphaseSv);
     }
 
     CHECK_OPEN_SSL(stringBIO = BIO_new_mem_buf(keyString, keyStringLength));
