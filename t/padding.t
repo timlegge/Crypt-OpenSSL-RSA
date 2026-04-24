@@ -3,9 +3,10 @@ use Test::More;
 
 use Crypt::OpenSSL::Random;
 use Crypt::OpenSSL::RSA;
-use Crypt::OpenSSL::Guess qw(openssl_version);
+use Crypt::OpenSSL::Guess qw(openssl_version find_openssl_prefix find_openssl_exec);
 
 my ($major, $minor, $patch) = openssl_version;
+my $is_libressl = (`"@{[find_openssl_exec(find_openssl_prefix())]}" version` =~ /LibreSSL/);
 
 BEGIN {
     plan tests => 124 + ( UNIVERSAL::can( "Crypt::OpenSSL::RSA", "use_sha512_hash" ) ? 4 * 5 : 0 );
@@ -82,10 +83,10 @@ is( $rsa_priv->decrypt( $rsa_priv->encrypt($plaintext) ), $plaintext, "private k
 my $rsa_pub = Crypt::OpenSSL::RSA->new_public_key($public_key_string);
 
 $plaintext .= $plaintext x 5;
-# sslv23 is unsupported on OpenSSL 3.x
+# sslv23 is unsupported on OpenSSL 3.x but LibreSSL still supports it
 SKIP: {
-    skip "OpenSSL version less than 3.0 supports sslv23", 2
-        if $major lt '3.0';
+    skip "sslv23 is available on OpenSSL < 3.0 and LibreSSL", 2
+        if $major lt '3.0' || $is_libressl;
     eval {
         $rsa->use_sslv23_padding;
     };

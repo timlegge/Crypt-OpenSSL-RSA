@@ -4,9 +4,10 @@ use Test::More;
 use Crypt::OpenSSL::Random;
 use Crypt::OpenSSL::RSA;
 
-use Crypt::OpenSSL::Guess qw(openssl_version);
+use Crypt::OpenSSL::Guess qw(openssl_version find_openssl_prefix find_openssl_exec);
 
 my ($major, $minor, $patch) = openssl_version();
+my $is_libressl = (`"@{[find_openssl_exec(find_openssl_prefix())]}" version` =~ /LibreSSL/);
 
 # Regression tests for PKCS#1 v1.5 signing (RSASSA-PKCS1-v1_5).
 # Issue #146: PKCS#1 v1.5 was disabled entirely in v0.35 to mitigate
@@ -62,9 +63,10 @@ SKIP: {
 }
 
 # --- Cross-padding: sign with PKCS1, verify with PSS must fail ---
+# On pre-3.x and LibreSSL, RSA_verify ignores the padding mode setting
 SKIP: {
-    skip "sign uses pkcs1_padding only on OpenSSL < 3.x", 1
-        if $major < 3;
+    skip "cross-padding test requires OpenSSL 3.x (not LibreSSL)", 1
+        if $major < 3 || $is_libressl;
     $rsa->use_pkcs1_padding();
     $rsa->use_sha256_hash();
     my $sig = $rsa->sign("cross-padding test");
