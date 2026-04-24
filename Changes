@@ -1,5 +1,22 @@
 Revision history for Perl extension Crypt::OpenSSL::RSA.
 
+0.41 Apr 24 2026
+
+  [Bug Fixes]
+  - PR #181: Skip OpenSSL 3.x-specific tests on LibreSSL. LibreSSL
+    reports version >= 3.0 via Crypt::OpenSSL::Guess's openssl_version()
+    but internally uses the pre-3.x code path
+    (OPENSSL_VERSION_NUMBER < 0x30000000L), causing two CPAN Testers
+    failures on OpenBSD: t/padding.t (use_sslv23_padding is still a
+    valid XS function on LibreSSL because RSA_SSLV23_PADDING exists)
+    and t/pkcs1_sign.t (RSA_verify on pre-3.x/LibreSSL ignores the
+    padding mode, so cross-padding verification succeeds). LibreSSL
+    is now detected by parsing `openssl version` output for the
+    "LibreSSL" string, using find_openssl_exec(find_openssl_prefix())
+    from Crypt::OpenSSL::Guess to locate the correct binary. The
+    earlier approach of detecting LibreSSL via an undefined patch
+    level was not reliable.
+
 0.39 Apr 23 2026
 
   [Bug Fixes]

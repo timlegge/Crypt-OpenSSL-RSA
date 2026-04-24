@@ -6,7 +6,7 @@ use warnings;
 use Carp;    # Removing carp will break the XS code.
 use Crypt::OpenSSL::Bignum;
 
-our $VERSION = '0.39';
+our $VERSION = '0.41';
 
 use XSLoader;
 XSLoader::load 'Crypt::OpenSSL::RSA', $VERSION;
